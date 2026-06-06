@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from src.agents.base_agent import BaseAgent
+from src.agents.base_agent import AgentRole, BaseAgent
 
 
 @dataclass(frozen=True)
@@ -44,10 +44,15 @@ class UAV(BaseAgent):
     position: NDArray[np.float64]
     velocity: NDArray[np.float64] = field(default_factory=lambda: np.zeros(2, dtype=np.float64))
     heading: float = 0.0
+    altitude: float = 2.0
     assigned_region: UAVRegion | None = None
     assigned_target: NDArray[np.float64] | None = None
     max_speed: float = 1.5
     max_angular_velocity: float = 0.9
+
+    @property
+    def role(self) -> AgentRole:
+        return AgentRole.UAV
 
     def set_target(self, target: NDArray[np.float64]) -> None:
         """Assign navigation target p̃_i* for BSA / execution."""

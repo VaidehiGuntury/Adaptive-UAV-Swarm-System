@@ -13,7 +13,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.aggregation.self_aggregation import SelfAggregationController
+from src.algorithms.aggregation.self_aggregation import SelfAggregationController
 from src.agents.uav import spawn_uavs
 from src.config.loader import load_config
 from src.environment.world import World

@@ -8,9 +8,18 @@ without changing the simulation engine contract.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from enum import Enum
 
 import numpy as np
 from numpy.typing import NDArray
+
+
+class AgentRole(Enum):
+    """Agent type discriminator for graph topology and rendering."""
+
+    UAV = "uav"
+    UGV = "ugv"
+    MASTER = "master"
 
 
 class BaseAgent(ABC):
@@ -19,6 +28,11 @@ class BaseAgent(ABC):
     agent_id: int
     position: NDArray[np.float64]
     velocity: NDArray[np.float64]
+
+    @property
+    @abstractmethod
+    def role(self) -> AgentRole:
+        """Return the agent's role in the multi-layer hierarchy."""
 
     @abstractmethod
     def update(self, dt: float) -> None:

@@ -77,6 +77,12 @@ class TestWorldAndMap(unittest.TestCase):
         self.assertGreaterEqual(clipped[0], 0.0)
         self.assertLessEqual(clipped[1], self.world.height)
 
+    def test_world_optional_fields_default_empty(self) -> None:
+        self.assertIsNone(self.world.communication_graph)
+        self.assertIsNone(self.world.belief_map)
+        self.assertEqual(self.world.target_regions, [])
+        self.assertEqual(self.world.formation_specs, [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import numpy as np
 
-from src.aggregation.fitness_functions import (
+from src.algorithms.aggregation.fitness_functions import (
     ViewpointCandidate,
     aggregation_cost_j_c,
     compute_lambda_beta,
@@ -17,7 +17,7 @@ from src.aggregation.fitness_functions import (
     turning_cost_j_v,
     utility_u_a,
 )
-from src.aggregation.self_aggregation import SelfAggregationController
+from src.algorithms.aggregation.self_aggregation import SelfAggregationController
 from src.agents.uav import UAV, spawn_uavs
 from src.config.loader import load_config
 from src.environment.world import World

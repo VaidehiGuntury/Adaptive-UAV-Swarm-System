@@ -17,7 +17,7 @@ from dataclasses import dataclass, field
 import numpy as np
 from numpy.typing import NDArray
 
-from src.aggregation.self_aggregation import SelfAggregationController
+from src.algorithms.aggregation.self_aggregation import SelfAggregationController
 from src.agents.uav import UAV
 from src.config.loader import SimulationConfig
 from src.environment.world import World

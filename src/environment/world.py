@@ -2,7 +2,7 @@
 Configurable 2D simulation world.
 
 Bundles spatial bounds, obstacles, and the exploration map used by BSA
-viewpoint selection (Paper 1 Sec. 5).
+viewpoint selection (Paper 1 Sec. 5). Optional subsystems support Papers 2–3.
 """
 
 from __future__ import annotations
@@ -10,8 +10,12 @@ from __future__ import annotations
 import numpy as np
 
 from src.config.loader import EnvironmentConfig, UAVConfig
+from src.environment.belief_map import BeliefMap
+from src.environment.communication import CommunicationGraph
+from src.environment.formation_spec import FormationSpec
 from src.environment.map import ExplorationMap
 from src.environment.obstacles import ObstacleField, generate_obstacles
+from src.environment.target_region import TargetRegion
 
 
 class World:
@@ -23,10 +27,18 @@ class World:
         height: float,
         obstacles: ObstacleField,
         map_resolution: float = 0.5,
+        communication_graph: CommunicationGraph | None = None,
+        belief_map: BeliefMap | None = None,
+        target_regions: list[TargetRegion] | None = None,
+        formation_specs: list[FormationSpec] | None = None,
     ) -> None:
         self.width = width
         self.height = height
         self.obstacles = obstacles
+        self.communication_graph = communication_graph
+        self.belief_map = belief_map
+        self.target_regions: list[TargetRegion] = list(target_regions or [])
+        self.formation_specs: list[FormationSpec] = list(formation_specs or [])
         self.map = ExplorationMap(
             width=width,
             height=height,
