@@ -1,0 +1,41 @@
+# Paper 1 (DEBS) — self-aggregation exploration simulation
+# Layer 2/3 settings are intentionally absent in this iteration.
+
+environment:
+  width: 100.0
+  height: 100.0
+  obstacle_count: 20
+  obstacle_min_radius: 1.5
+  obstacle_max_radius: 4.0
+  obstacle_seed: 42
+
+uav:
+  # Paper 1 dynamics (Sec. 2.3, experiments)
+  max_speed: 1.5
+  max_angular_velocity: 0.9
+  sensing_range: 4.5
+  initial_spread_radius: 3.0
+
+aggregation:
+  # Paper 1 Eq. (7) utility U_a distance thresholds
+  d_c: 0.5
+  d_0: 12.0
+  k_a: 1.0
+  turn_cost_weight: 1.0
+  trail_penalty: 2.0
+  # Composite viewpoint cost weights (Sec. 5 — BSA + navigation + penalty)
+  cluster_penalty_weight: 1.0
+  turn_penalty_weight: 0.5
+  trail_penalty_weight: 1.0
+  candidates_per_frontier: 6
+  # Mission region radius ≈ max detection range (Paper 1 task allocation model)
+  mission_region_radius: 4.5
+  replan_interval: 2.0
+
+simulation:
+  num_uavs: 10
+  dt: 0.1
+  duration: 60.0
+  spawn_center_x: 50.0
+  spawn_center_y: 50.0
+  animation_interval_ms: 50

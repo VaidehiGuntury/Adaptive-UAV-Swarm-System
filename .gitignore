@@ -1,0 +1,29 @@
+# Cursor
+.cursorrules
+
+# Research papers
+papers/
+
+# Personal notes
+docs/weekly_logs/
+docs/private_notes/
+
+# Python
+__pycache__/
+*.pyc
+
+# Virtual environments
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated results
+assets/screenshots/
+experiments/tmp/
