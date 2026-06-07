@@ -21,6 +21,7 @@ from src.algorithms.aggregation.self_aggregation import SelfAggregationControlle
 from src.agents.uav import UAV, spawn_uavs
 from src.config.loader import load_config
 from src.environment.world import World
+from src.evaluation.exploration_metrics import mean_target_separation
 from src.simulation.simulation_engine import SimulationEngine
 
 
@@ -147,6 +148,39 @@ class TestAggregationBehaviour(unittest.TestCase):
         )
         self.assertTrue(moved)
         self.assertGreater(engine.metrics_history[-1].explored_fraction, 0.0)
+
+    def test_ring_spawn_separates_allocations(self) -> None:
+        center = np.array([50.0, 50.0], dtype=np.float64)
+        agents = spawn_uavs(
+            count=10,
+            center=center,
+            spread_radius=20.0,
+            mission_radius=4.5,
+            max_speed=1.5,
+            max_angular_velocity=0.9,
+            seed=0,
+            spawn_mode="ring",
+        )
+        self.assertGreater(mean_target_separation(agents), 15.0)
+
+    def test_bsa_replan_updates_target_not_allocation(self) -> None:
+        config_path = Path(__file__).resolve().parents[1] / "configs" / "simulation.yaml"
+        config = load_config(config_path)
+        world = World.from_config(config.environment, config.uav)
+        agent = UAV(agent_id=0, position=np.array([50.0, 50.0]))
+        allocation = np.array([45.0, 55.0])
+        agent.set_region(allocation, config.aggregation.mission_region_radius)
+        agent.set_target(np.array([50.0, 50.0]))
+        agg_config = replace(config.aggregation, replan_interval=0.0)
+        controller = SelfAggregationController(
+            config=agg_config,
+            uav_config=config.uav,
+            rng=np.random.default_rng(0),
+        )
+        world.map.mark_explored(agent.position, config.uav.sensing_range)
+        controller.update(agent, [agent], world, dt=0.1)
+        np.testing.assert_array_equal(agent.assigned_region.center, allocation)
+        self.assertIsNotNone(agent.assigned_target)
 
     def test_bsa_assigns_target_on_replan(self) -> None:
         config_path = Path(__file__).resolve().parents[1] / "configs" / "simulation.yaml"

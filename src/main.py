@@ -38,6 +38,8 @@ def build_simulation(config_path: Path) -> tuple[SimulationEngine, SimulationRen
         max_speed=config.uav.max_speed,
         max_angular_velocity=config.uav.max_angular_velocity,
         seed=config.environment.obstacle_seed,
+        spawn_mode=config.uav.spawn_mode,  # type: ignore[arg-type]
+        spawn_angular_noise=config.uav.spawn_angular_noise,
     )
 
     aggregation = SelfAggregationController(
@@ -83,8 +85,9 @@ def main() -> None:
     else:
         final = renderer.engine.metrics_history[-1]
         print(
-            f"Simulation complete: {final.timestep} steps, "
+            f"Simulation complete: {final.timestep} steps ({final.time_s:.1f}s), "
             f"explored {final.explored_fraction * 100:.1f}%, "
+            f"frontier_reuse {final.frontier_reuse_frequency:.3f}, "
             f"mean speed {final.mean_speed:.2f} m/s"
         )
 

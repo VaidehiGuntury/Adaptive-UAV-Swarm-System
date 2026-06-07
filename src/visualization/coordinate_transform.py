@@ -42,3 +42,21 @@ class CoordinateTransform:
     def world_radius_to_pixels(self, radius: float) -> int:
         """Convert a world-space radius to pixel radius."""
         return max(1, int(radius * self.scale))
+
+    def cell_screen_rect(self, col: int, row: int, resolution: float) -> tuple[int, int, int, int]:
+        """
+        Return pygame-style screen rect (x, y, width, height) for a grid cell.
+
+        ``col`` / ``row`` are grid indices (i, j); y increases upward in world space.
+        """
+        x0 = col * resolution
+        y0 = row * resolution
+        x1 = x0 + resolution
+        y1 = y0 + resolution
+        sx0, sy0 = self.world_to_screen(np.array([x0, y1], dtype=np.float64))
+        sx1, sy1 = self.world_to_screen(np.array([x1, y0], dtype=np.float64))
+        left = min(sx0, sx1)
+        top = min(sy0, sy1)
+        width = max(1, abs(sx1 - sx0))
+        height = max(1, abs(sy1 - sy0))
+        return left, top, width, height

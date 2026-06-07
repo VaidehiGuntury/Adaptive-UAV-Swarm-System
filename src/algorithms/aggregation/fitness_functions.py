@@ -17,6 +17,14 @@ from numpy.typing import NDArray
 
 from src.agents.uav import UAV
 from src.config.loader import AggregationConfig
+from src.environment.map import RegionKey
+
+
+def allocation_center(agent: UAV) -> NDArray[np.float64] | None:
+    """Allocated mission centre p̃_i* (Paper 1); falls back to navigation target if unset."""
+    if agent.assigned_region is not None:
+        return agent.assigned_region.center
+    return agent.assigned_target
 
 
 @dataclass(frozen=True)
@@ -31,6 +39,7 @@ class ViewpointCandidate:
     yaw: float
     cluster_id: int
     is_trail: bool
+    region_key: RegionKey = (0, 0)
 
 
 def compute_lambda_beta(config: AggregationConfig) -> float:
@@ -84,18 +93,18 @@ def aggregation_utility_j_c(
     others' targets and positions. Viewpoint selection maximizes this term.
     """
     vp_c = candidate.viewpoint
-    own_target = agent.assigned_target
-    if own_target is None:
+    own_allocated = allocation_center(agent)
+    if own_allocated is None:
         return float("-inf")
 
-    utility = utility_u_a(vp_c, own_target, config, lambda_beta)
+    utility = utility_u_a(vp_c, own_allocated, config, lambda_beta)
 
     for other in all_agents:
         if other.agent_id == agent.agent_id:
             continue
-        other_target = other.assigned_target
-        if other_target is not None:
-            utility -= utility_u_a(vp_c, other_target, config, lambda_beta)
+        other_allocated = allocation_center(other)
+        if other_allocated is not None:
+            utility -= utility_u_a(vp_c, other_allocated, config, lambda_beta)
         utility += utility_u_a(vp_c, other.position, config, lambda_beta)
 
     return float(utility)

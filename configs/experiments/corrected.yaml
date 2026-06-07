@@ -1,5 +1,4 @@
-# Paper 1 (DEBS) — self-aggregation exploration simulation
-# Layer 2/3 settings are intentionally absent in this iteration.
+# Corrected experiment — A (trail fix) + B (p̃*/vp_c split) + D (trail_penalty 8) + ring spawn
 
 environment:
   width: 100.0
@@ -10,7 +9,6 @@ environment:
   obstacle_seed: 42
 
 uav:
-  # Paper 1 dynamics (Sec. 2.3, experiments)
   max_speed: 1.5
   max_angular_velocity: 0.9
   sensing_range: 4.5
@@ -19,19 +17,15 @@ uav:
   spawn_angular_noise: 0.15
 
 aggregation:
-  # Paper 1 Eq. (7) utility U_a distance thresholds
   d_c: 0.5
   d_0: 12.0
   k_a: 1.0
   turn_cost_weight: 1.0
-  # Eq. (10) trail penalty — raised after geographic trail fix (see docs/assumptions.md)
   trail_penalty: 8.0
-  # Composite viewpoint cost weights (Sec. 5 — BSA + navigation + penalty)
   cluster_penalty_weight: 1.0
   turn_penalty_weight: 0.5
   trail_penalty_weight: 1.0
   candidates_per_frontier: 6
-  # Mission region radius ≈ max detection range (Paper 1 task allocation model)
   mission_region_radius: 4.5
   replan_interval: 2.0
 

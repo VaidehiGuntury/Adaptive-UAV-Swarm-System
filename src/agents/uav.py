@@ -8,11 +8,14 @@ allocation (Sec. 4) without implementing IDE in this iteration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
 from src.agents.base_agent import AgentRole, BaseAgent
+
+SpawnMode = Literal["ring", "legacy"]
 
 
 @dataclass(frozen=True)
@@ -20,8 +23,8 @@ class UAVRegion:
     """
     Circular mission region (Paper 1 task allocation model).
 
-    Each UAV owns a disk centered at its allocated target with radius equal
-    to maximum detection range.
+    Each UAV owns a disk centred at its allocated target p̃_i* with radius
+    equal to maximum detection range.
     """
 
     center: NDArray[np.float64]
@@ -36,8 +39,8 @@ class UAV(BaseAgent):
     Paper 1 notation:
     - position p_i
     - velocity v_i
-    - allocated target p̃_i* (assigned_target)
-    - mission region A_i (assigned_region)
+    - allocated target p̃_i* (assigned_region.center)
+    - selected viewpoint vp_c (assigned_target — navigation execution)
     """
 
     agent_id: int
@@ -55,16 +58,20 @@ class UAV(BaseAgent):
         return AgentRole.UAV
 
     def set_target(self, target: NDArray[np.float64]) -> None:
-        """Assign navigation target p̃_i* for BSA / execution."""
+        """Assign BSA navigation viewpoint vp_c (Paper 1 Sec. 5 execution)."""
         self.assigned_target = target.astype(np.float64).copy()
 
     def set_region(self, center: NDArray[np.float64], radius: float) -> None:
-        """Assign circular mission region centered at allocated target."""
+        """
+        Assign circular mission region p̃_i* (Paper 1 task allocation model).
+
+        Does not update the navigation viewpoint; IDE / spawn sets this once
+        until explicit reassignment is implemented.
+        """
         self.assigned_region = UAVRegion(
             center=center.astype(np.float64).copy(),
             radius=radius,
         )
-        self.assigned_target = center.astype(np.float64).copy()
 
     def compute_distance(self, other: BaseAgent) -> float:
         """Euclidean distance ||p_i - p_j||_2."""
@@ -122,29 +129,47 @@ def spawn_uavs(
     max_speed: float,
     max_angular_velocity: float,
     seed: int | None = None,
+    spawn_mode: SpawnMode = "ring",
+    spawn_angular_noise: float = 0.15,
 ) -> list[UAV]:
     """
-    Initialize UAV fleet near world center (Paper 1 experimental setup).
+    Initialize UAV fleet for Paper 1 experiments.
 
-    Assigned targets are distributed on a ring for initial decentralization.
+    ``ring`` mode (default): evenly spaced on a circle with small angular noise;
+    p̃_i* is initialised at the spawn position.
+
+    ``legacy`` mode: pre-correction spawn (tight cluster + outward allocation).
+
     Full IDE pairwise allocation (Paper 1 Sec. 4) is a future integration point.
     """
     rng = np.random.default_rng(seed)
     agents: list[UAV] = []
+
     for agent_id in range(count):
-        angle = 2.0 * np.pi * agent_id / count
-        offset = spread_radius * np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
-        position = center + offset + rng.normal(scale=0.3, size=2)
-        initial_target = center + 2.0 * spread_radius * np.array(
-            [np.cos(angle), np.sin(angle)],
-            dtype=np.float64,
-        )
+        base_angle = 2.0 * np.pi * agent_id / count
+
+        if spawn_mode == "legacy":
+            angle = base_angle
+            offset = spread_radius * np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+            position = center + offset + rng.normal(scale=0.3, size=2)
+            allocation = center + 2.0 * spread_radius * np.array(
+                [np.cos(angle), np.sin(angle)],
+                dtype=np.float64,
+            )
+        else:
+            angle = base_angle + float(rng.uniform(-spawn_angular_noise, spawn_angular_noise))
+            direction = np.array([np.cos(angle), np.sin(angle)], dtype=np.float64)
+            position = center + spread_radius * direction
+            allocation = position.copy()
+
         uav = UAV(
             agent_id=agent_id,
             position=position.astype(np.float64),
             max_speed=max_speed,
             max_angular_velocity=max_angular_velocity,
         )
-        uav.set_region(initial_target, mission_radius)
+        uav.set_region(allocation, mission_radius)
+        uav.set_target(position.astype(np.float64))
         agents.append(uav)
+
     return agents

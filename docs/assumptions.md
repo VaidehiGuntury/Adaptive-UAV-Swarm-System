@@ -31,12 +31,14 @@ Sources: `papers/notes/paper1_notes.md`, `paper2_notes.md`, `paper3_notes.md`.
 | Max linear velocity 1.5 m/s, max angular velocity 0.9 rad/s | Implemented | `UAVConfig` |
 | Disk sensing range 4.5 m | Implemented | Not full 80°×60° FOV camera model |
 | Voxel map resolution 0.15 m | Deferred | Using 2D grid at `sensing_range / 3` |
-| Pairwise IDE task allocation (Eq. 1, Algs. 1–2) | Deferred | Ring spawn heuristic in `spawn_uavs` |
+| Pairwise IDE task allocation (Eq. 1, Algs. 1–2) | Deferred | Ring spawn (`spawn_mode: ring`) sets p̃* at spawn position |
 | Limited-range communication | Stub | `CommunicationGraph` exists; not used in BSA loop |
 | BSA viewpoint utility U_a, costs J_C, J_V, J_L (Eqs. 6–10) | Implemented | `algorithms/aggregation/fitness_functions.py` |
 | Hybrid A* + B-spline trajectories | Deferred | Direct velocity steering in `UAV.move` |
-| Frontier / trail cluster marking | Implemented | `ExplorationMap` |
-| Mission region = circle at allocated target | Implemented | `UAVRegion` |
+| Frontier / trail cluster marking | Implemented | Geographic `region_key` (grid cell of centroid); trails persist across cluster IDs |
+| Mission region = circle at allocated target | Implemented | `UAVRegion`; `set_region` separate from BSA `set_target` (vp_c) |
+| Trail penalty J_L weight | Implemented | `trail_penalty: 8.0` in YAML after geographic trail fix |
+| Spawn geometry | Implemented | `ring` (default) with `spawn_angular_noise`; `legacy` for baseline experiments |
 
 ---
 
@@ -87,3 +89,5 @@ Sources: `papers/notes/paper1_notes.md`, `paper2_notes.md`, `paper3_notes.md`.
 2. **Circular obstacles** — proxy for forest trees; not tree-density scenes from Paper 1 experiments.
 3. **No ROS** — standalone Python simulator vs. Paper 1 ROS setup.
 4. **Single Paper 1 controller** — `SimulationEngine` runs BSA only; no multi-controller orchestration yet.
+5. **Trail penalty raised to 8.0** — after fixing geographic trail identity, a stronger J_L discourages frontier re-selection without adding new heuristics.
+6. **p̃* initialised at spawn position** — ring spawn only; IDE allocation remains deferred.

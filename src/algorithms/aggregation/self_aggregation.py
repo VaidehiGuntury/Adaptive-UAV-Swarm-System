@@ -17,7 +17,7 @@ from numpy.typing import NDArray
 from src.agents.uav import UAV
 from src.algorithms.aggregation.fitness_functions import ViewpointCandidate, evaluate_viewpoint_cost
 from src.config.loader import AggregationConfig, UAVConfig
-from src.environment.map import FrontierCluster
+from src.environment.map import FrontierCluster, RegionKey
 from src.environment.world import World
 
 
@@ -37,6 +37,29 @@ class SelfAggregationController:
     uav_config: UAVConfig
     rng: np.random.Generator = field(default_factory=np.random.default_rng)
     _time_since_replan: dict[int, float] = field(default_factory=dict)
+    _step_region_keys: list[RegionKey] = field(default_factory=list)
+    _replan_region_history: list[RegionKey] = field(default_factory=list)
+    _step_reassignment_count: int = 0
+
+    def begin_step(self) -> None:
+        """Reset per-step observational counters (instrumentation only)."""
+        self._step_region_keys.clear()
+        self._step_reassignment_count = 0
+
+    @property
+    def step_reassignment_count(self) -> int:
+        """Number of BSA replans executed in the current step."""
+        return self._step_reassignment_count
+
+    @property
+    def step_region_keys(self) -> list[RegionKey]:
+        """Frontier region keys selected during replans this step."""
+        return list(self._step_region_keys)
+
+    @property
+    def replan_region_history(self) -> list[RegionKey]:
+        """Cumulative frontier region keys from all BSA replans (instrumentation)."""
+        return list(self._replan_region_history)
 
     def update(
         self,
@@ -46,7 +69,9 @@ class SelfAggregationController:
         dt: float,
     ) -> None:
         """
-        Run BSA decision logic and assign a new target when replan interval elapses.
+        Run BSA decision logic and assign a new viewpoint when replan interval elapses.
+
+        Updates vp_c via ``set_target`` only; allocated region p̃* remains stable.
         """
         elapsed = self._time_since_replan.get(agent.agent_id, 0.0) + dt
         self._time_since_replan[agent.agent_id] = elapsed
@@ -55,13 +80,14 @@ class SelfAggregationController:
             return
 
         self._time_since_replan[agent.agent_id] = 0.0
+        self._step_reassignment_count += 1
+
         clusters = world.map.extract_frontier_clusters()
         candidates = self._generate_candidates(agent, clusters, world)
 
         if not candidates:
             fallback = self._fallback_target(agent, world)
             agent.set_target(fallback)
-            agent.set_region(fallback, self.config.mission_region_radius)
             return
 
         best = max(
@@ -69,10 +95,11 @@ class SelfAggregationController:
             key=lambda c: evaluate_viewpoint_cost(c, agent, all_agents, self.config),
         )
         agent.set_target(best.viewpoint)
-        agent.set_region(best.viewpoint, self.config.mission_region_radius)
+        self._step_region_keys.append(best.region_key)
+        self._replan_region_history.append(best.region_key)
 
         if best.is_trail:
-            world.map.mark_cluster_as_trail(best.cluster_id)
+            world.map.mark_cluster_as_trail(best.region_key)
 
     def _generate_candidates(
         self,
@@ -103,6 +130,7 @@ class SelfAggregationController:
                         yaw=yaw,
                         cluster_id=cluster.cluster_id,
                         is_trail=cluster.is_trail,
+                        region_key=cluster.region_key,
                     )
                 )
 

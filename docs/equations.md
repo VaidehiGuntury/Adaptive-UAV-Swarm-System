@@ -64,3 +64,8 @@ Maps paper equations to `src/` modules and implementation status.
 | Mean velocity | `simulation/simulation_engine.py` | implemented |
 | Mean pairwise distance | `simulation/simulation_engine.py` | implemented |
 | Mission time | `simulation/simulation_engine.py` | implemented |
+| Mean target separation (p̃* pairwise) | `evaluation/exploration_metrics.py` | implemented |
+| Frontier reuse frequency | `evaluation/exploration_metrics.py` | implemented |
+| Target reassignment count | `algorithms/aggregation/self_aggregation.py` | implemented |
+| Revisit ratio | `evaluation/exploration_metrics.py` | implemented |
+| Active frontier count | `simulation/simulation_engine.py` | implemented |

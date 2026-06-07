@@ -29,6 +29,8 @@ class UAVConfig:
     max_angular_velocity: float
     sensing_range: float
     initial_spread_radius: float
+    spawn_mode: str
+    spawn_angular_noise: float
 
 
 @dataclass(frozen=True)
@@ -98,6 +100,8 @@ def load_config(path: str | Path) -> SimulationConfig:
             max_angular_velocity=float(_require(uav, "max_angular_velocity")),
             sensing_range=float(_require(uav, "sensing_range")),
             initial_spread_radius=float(_require(uav, "initial_spread_radius")),
+            spawn_mode=str(uav.get("spawn_mode", "ring")),
+            spawn_angular_noise=float(uav.get("spawn_angular_noise", 0.15)),
         ),
         aggregation=AggregationConfig(
             d_c=float(_require(agg, "d_c")),

@@ -129,11 +129,39 @@ Gate: `python -m unittest discover -s tests -v`
 
 ---
 
+## Visualization Layers
+
+Pygame `PygameRenderer` draws research layers in bottom-to-top order. Toggle keys apply during `run_live()` and `playback()`.
+
+| Layer | Module / data source | Toggle | Default |
+|-------|----------------------|--------|---------|
+| **Grid** | `ExplorationMap.explored_mask()`, `obstacle_mask()` | `G` | off |
+| **Frontier** | `frontier_mask()`, `extract_frontier_clusters()` centroids | `F` | on |
+| **Obstacles** | `ObstacleField` | — | always on |
+| **Sensor radius** | `config.uav.sensing_range`, `agent.position` | `S` | on |
+| **Trails** | `SimulationEngine.agent_histories` (max 150 pts, faded) | `T` | on |
+| **Targets** | `UAV.assigned_target` (BSA viewpoint markers + lines) | `Y` | on |
+| **Velocity** | `UAV.velocity` arrows | `V` | on |
+| **Agents** | `SimulationState.agents` (markers + IDs) | — | always on |
+| **Dashboard** | `SimulationState.metrics`, frontier count at render time | — | always on |
+
+Supporting modules:
+
+- `visualization/layer_toggles.py` — keyboard toggle state
+- `visualization/render_palette.py` — research colour palette
+- `visualization/coordinate_transform.py` — world ↔ screen (viewport excludes dashboard width)
+
+The right-side **research dashboard** displays mission time, step, fleet size, coverage %, mean speed, mean pairwise distance, and frontier cluster count. Frontier IDs on the map are not shown (centroids only).
+
+**Demo scope label:** “DEBS Stage 2 — BSA Viewpoint Selection”. IDE allocation and A*/B-spline planning are deferred.
+
+---
+
 ## Visualization Stack
 
 | Backend | Class | Status |
 |---------|-------|--------|
-| Matplotlib | `SimulationRenderer` | Full (trajectories, targets, metrics) |
-| Pygame | `PygameRenderer` | Skeleton (obstacles, UAVs, IDs, HUD) |
+| Matplotlib | `SimulationRenderer` | Trajectories, targets, basic metrics |
+| Pygame | `PygameRenderer` | Paper 1 research demo (layers above) |
 
 `.cursorrules` designates Pygame as the primary real-time engine. Matplotlib remains for offline analysis plots.

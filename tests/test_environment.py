@@ -83,6 +83,46 @@ class TestWorldAndMap(unittest.TestCase):
         self.assertEqual(self.world.target_regions, [])
         self.assertEqual(self.world.formation_specs, [])
 
+    def test_map_accessor_shapes(self) -> None:
+        explored = self.world.map.explored_mask()
+        obstacles = self.world.map.obstacle_mask()
+        frontier = self.world.map.frontier_mask()
+        self.assertEqual(explored.shape, self.world.map.grid_shape())
+        self.assertEqual(obstacles.shape, explored.shape)
+        self.assertEqual(frontier.shape, explored.shape)
+
+    def test_explored_mask_updates(self) -> None:
+        explored = self.world.map.explored_mask()
+        self.assertFalse(np.any(explored))
+        self.world.map.mark_explored(
+            np.array([self.world.width / 2, self.world.height / 2]),
+            radius=self.config.uav.sensing_range,
+        )
+        self.assertTrue(np.any(self.world.map.explored_mask()))
+
+    def test_frontier_mask_excludes_obstacles(self) -> None:
+        frontier = self.world.map.frontier_mask()
+        obstacles = self.world.map.obstacle_mask()
+        self.assertFalse(np.any(frontier & obstacles))
+
+    def test_frontier_appears_after_exploration(self) -> None:
+        center = np.array([self.world.width / 2, self.world.height / 2])
+        self.world.map.mark_explored(center, radius=self.config.uav.sensing_range)
+        frontier = self.world.map.frontier_mask()
+        self.assertTrue(np.any(frontier))
+
+    def test_trail_region_persists_across_cluster_ids(self) -> None:
+        center = np.array([self.world.width / 2, self.world.height / 2])
+        self.world.map.mark_explored(center, radius=self.config.uav.sensing_range)
+        clusters_before = self.world.map.extract_frontier_clusters()
+        self.assertGreater(len(clusters_before), 0)
+        region_key = clusters_before[0].region_key
+        self.world.map.mark_cluster_as_trail(region_key)
+        clusters_after = self.world.map.extract_frontier_clusters()
+        matching = [c for c in clusters_after if c.region_key == region_key]
+        self.assertTrue(matching)
+        self.assertTrue(matching[0].is_trail)
+
 
 if __name__ == "__main__":
     unittest.main()

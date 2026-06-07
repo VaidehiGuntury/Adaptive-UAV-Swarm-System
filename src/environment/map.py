@@ -15,6 +15,9 @@ from numpy.typing import NDArray
 
 from src.environment.obstacles import ObstacleField
 
+# Geographic key (grid col, grid row) for stable trail identity (Paper 1 Eq. 10).
+RegionKey = tuple[int, int]
+
 
 @dataclass(frozen=True)
 class FrontierCluster:
@@ -23,6 +26,7 @@ class FrontierCluster:
     centroid: NDArray[np.float64]
     is_trail: bool
     cluster_id: int
+    region_key: RegionKey
 
 
 class ExplorationMap:
@@ -48,8 +52,37 @@ class ExplorationMap:
         self._ny = max(1, int(np.ceil(height / resolution)))
         self._explored = np.zeros((self._ny, self._nx), dtype=bool)
         self._obstacle_mask = self._build_obstacle_mask()
-        self._trail_clusters: set[int] = set()
+        self._trail_region_keys: set[RegionKey] = set()
         self._next_cluster_id = 0
+
+    def grid_shape(self) -> tuple[int, int]:
+        """Grid dimensions as (rows, cols) matching ``explored_mask()`` indexing."""
+        return self._ny, self._nx
+
+    def explored_mask(self) -> NDArray[np.bool_]:
+        """Read-only copy of the explored-cell boolean grid."""
+        return self._explored.copy()
+
+    def obstacle_mask(self) -> NDArray[np.bool_]:
+        """Read-only copy of the obstacle-cell boolean grid."""
+        return self._obstacle_mask.copy()
+
+    def frontier_mask(self) -> NDArray[np.bool_]:
+        """Read-only copy of frontier cells (explored cells bordering unexplored free space)."""
+        return self._compute_frontier_mask().copy()
+
+    def region_key_for_point(self, point: NDArray[np.float64]) -> RegionKey:
+        """Stable geographic key for a world point (centroid grid cell)."""
+        col, row = self.world_to_grid(point)
+        return col, row
+
+    def mark_cluster_as_trail(self, region_key: RegionKey) -> None:
+        """Mark a frontier region as trail for J_L penalty (Paper 1 Eq. 10)."""
+        self._trail_region_keys.add(region_key)
+
+    def is_trail_region(self, region_key: RegionKey) -> bool:
+        """Return True if the geographic region was marked as trail."""
+        return region_key in self._trail_region_keys
 
     def _build_obstacle_mask(self) -> NDArray[np.bool_]:
         mask = np.zeros((self._ny, self._nx), dtype=bool)
@@ -62,11 +95,32 @@ class ExplorationMap:
                     mask[j, i] = True
         return mask
 
+    def _compute_frontier_mask(self) -> NDArray[np.bool_]:
+        """Frontier cells: explored free cells adjacent to unexplored free cells."""
+        unexplored_free = (~self._explored) & (~self._obstacle_mask)
+        frontier_mask = np.zeros_like(self._explored, dtype=bool)
+        for j in range(self._ny):
+            for i in range(self._nx):
+                if not self._explored[j, i] or self._obstacle_mask[j, i]:
+                    continue
+                neighbors = [
+                    (i + 1, j),
+                    (i - 1, j),
+                    (i, j + 1),
+                    (i, j - 1),
+                ]
+                for ni, nj in neighbors:
+                    if 0 <= ni < self._nx and 0 <= nj < self._ny:
+                        if unexplored_free[nj, ni]:
+                            frontier_mask[j, i] = True
+                            break
+        return frontier_mask
+
     def world_to_grid(self, point: NDArray[np.float64]) -> tuple[int, int]:
-        """Convert world coordinates to grid indices (clamped)."""
-        i = int(np.clip(point[0] / self.resolution, 0, self._nx - 1))
-        j = int(np.clip(point[1] / self.resolution, 0, self._ny - 1))
-        return i, j
+        """Convert world coordinates to grid indices (col, row), clamped."""
+        col = int(np.clip(point[0] / self.resolution, 0, self._nx - 1))
+        row = int(np.clip(point[1] / self.resolution, 0, self._ny - 1))
+        return col, row
 
     def grid_to_world(self, i: int, j: int) -> NDArray[np.float64]:
         """Convert grid indices to world coordinates (cell center)."""
@@ -99,34 +153,13 @@ class ExplorationMap:
             return 1.0
         return float(np.mean(self._explored[free]))
 
-    def mark_cluster_as_trail(self, cluster_id: int) -> None:
-        """Mark a cluster as trail for J_L penalty (Paper 1 Eq. 10)."""
-        self._trail_clusters.add(cluster_id)
-
     def extract_frontier_clusters(self, min_cluster_size: int = 3) -> list[FrontierCluster]:
         """
         Extract frontier cells: explored cells adjacent to unexplored free cells.
 
         Clusters are connected components (4-neighborhood) for viewpoint sampling.
         """
-        unexplored_free = (~self._explored) & (~self._obstacle_mask)
-        frontier_mask = np.zeros_like(self._explored, dtype=bool)
-        for j in range(self._ny):
-            for i in range(self._nx):
-                if not self._explored[j, i] or self._obstacle_mask[j, i]:
-                    continue
-                neighbors = [
-                    (i + 1, j),
-                    (i - 1, j),
-                    (i, j + 1),
-                    (i, j - 1),
-                ]
-                for ni, nj in neighbors:
-                    if 0 <= ni < self._nx and 0 <= nj < self._ny:
-                        if unexplored_free[nj, ni]:
-                            frontier_mask[j, i] = True
-                            break
-
+        frontier_mask = self._compute_frontier_mask()
         visited = np.zeros_like(frontier_mask, dtype=bool)
         clusters: list[FrontierCluster] = []
 
@@ -155,13 +188,15 @@ class ExplorationMap:
                     dtype=np.float64,
                 )
                 centroid = np.mean(points, axis=0)
+                region_key = self.region_key_for_point(centroid)
                 cluster_id = self._next_cluster_id
                 self._next_cluster_id += 1
                 clusters.append(
                     FrontierCluster(
                         centroid=centroid,
-                        is_trail=cluster_id in self._trail_clusters,
+                        is_trail=region_key in self._trail_region_keys,
                         cluster_id=cluster_id,
+                        region_key=region_key,
                     )
                 )
 

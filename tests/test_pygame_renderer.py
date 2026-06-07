@@ -70,6 +70,28 @@ class TestPygameRenderer(unittest.TestCase):
         history = self.renderer.run_and_record()
         self.assertGreater(len(history), 1)
 
+    def test_draw_frame_all_layers_enabled(self) -> None:
+        pygame.init()
+        surface = pygame.Surface((800, 800))
+        self.renderer.toggles.show_grid = True
+        for _ in range(3):
+            self.engine.step()
+        state = self.engine.get_state()
+        self.renderer.draw_frame(state, surface=surface, frame_index=3)
+
+    def test_draw_frame_all_layers_disabled(self) -> None:
+        pygame.init()
+        surface = pygame.Surface((800, 800))
+        self.renderer.toggles.show_grid = False
+        self.renderer.toggles.show_frontiers = False
+        self.renderer.toggles.show_trails = False
+        self.renderer.toggles.show_velocity = False
+        self.renderer.toggles.show_targets = False
+        self.renderer.toggles.show_sensor_radius = False
+        self.engine.step()
+        state = self.engine.get_state()
+        self.renderer.draw_frame(state, surface=surface)
+
 
 if __name__ == "__main__":
     unittest.main()

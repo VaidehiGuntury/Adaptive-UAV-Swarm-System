@@ -12,7 +12,7 @@ Visualization is intentionally excluded (see src/visualization/renderer.py).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 from numpy.typing import NDArray
@@ -21,6 +21,11 @@ from src.algorithms.aggregation.self_aggregation import SelfAggregationControlle
 from src.agents.uav import UAV
 from src.config.loader import SimulationConfig
 from src.environment.world import World
+from src.evaluation.exploration_metrics import (
+    frontier_reuse_frequency,
+    mean_target_separation,
+    revisit_ratio,
+)
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,11 @@ class SimulationMetrics:
     explored_fraction: float
     mean_speed: float
     mean_pairwise_distance: float
+    mean_target_separation: float
+    frontier_reuse_frequency: float
+    target_reassignment_count: int
+    revisit_ratio: float
+    active_frontier_count: int
 
 
 @dataclass
@@ -72,6 +82,7 @@ class SimulationEngine:
     def step(self) -> SimulationMetrics:
         """Execute one simulation timestep."""
         dt = self.config.dt
+        self.aggregation.begin_step()
 
         for agent in self.agents:
             self.aggregation.update(agent, self.agents, self.world, dt)
@@ -116,10 +127,19 @@ class SimulationEngine:
                 pairwise.append(agent_i.compute_distance(agent_j))
         mean_pairwise = float(np.mean(pairwise)) if pairwise else 0.0
 
+        frontier_clusters = self.world.map.extract_frontier_clusters()
+
         return SimulationMetrics(
             timestep=self.timestep,
             time_s=self.time_s,
             explored_fraction=self.world.map.explored_fraction(),
             mean_speed=mean_speed,
             mean_pairwise_distance=mean_pairwise,
+            mean_target_separation=mean_target_separation(self.agents),
+            frontier_reuse_frequency=frontier_reuse_frequency(
+                self.aggregation.replan_region_history
+            ),
+            target_reassignment_count=self.aggregation.step_reassignment_count,
+            revisit_ratio=revisit_ratio(self.agent_histories, self.world.map),
+            active_frontier_count=len(frontier_clusters),
         )
