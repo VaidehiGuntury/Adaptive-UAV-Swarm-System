@@ -12,6 +12,7 @@ import numpy as np
 from src.config.loader import EnvironmentConfig, UAVConfig
 from src.environment.belief_map import BeliefMap
 from src.environment.communication import CommunicationGraph
+from src.algorithms.formation.formation_state import FormationState
 from src.environment.formation_spec import FormationSpec
 from src.environment.map import ExplorationMap
 from src.environment.obstacles import ObstacleField, generate_obstacles
@@ -31,6 +32,7 @@ class World:
         belief_map: BeliefMap | None = None,
         target_regions: list[TargetRegion] | None = None,
         formation_specs: list[FormationSpec] | None = None,
+        formation_states: list[FormationState] | None = None,
     ) -> None:
         self.width = width
         self.height = height
@@ -39,6 +41,7 @@ class World:
         self.belief_map = belief_map
         self.target_regions: list[TargetRegion] = list(target_regions or [])
         self.formation_specs: list[FormationSpec] = list(formation_specs or [])
+        self.formation_states: list[FormationState] = list(formation_states or [])
         self.map = ExplorationMap(
             width=width,
             height=height,

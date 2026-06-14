@@ -2,6 +2,11 @@
 
 from src.environment.belief_map import BeliefMap
 from src.environment.communication import CommunicationGraph
+from src.algorithms.formation import (
+    FormationState,
+    FormationType,
+    assign_formation_slots,
+)
 from src.environment.formation_spec import FormationSpec
 from src.environment.map import ExplorationMap
 from src.environment.obstacles import CircularObstacle, ObstacleField, generate_obstacles
@@ -19,6 +24,9 @@ __all__ = [
     "CommunicationGraph",
     "ExplorationMap",
     "FormationSpec",
+    "FormationState",
+    "FormationType",
+    "assign_formation_slots",
     "ObstacleField",
     "RectangularTargetRegion",
     "TargetRegion",

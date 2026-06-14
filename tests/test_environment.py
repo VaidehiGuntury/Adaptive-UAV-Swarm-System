@@ -82,6 +82,7 @@ class TestWorldAndMap(unittest.TestCase):
         self.assertIsNone(self.world.belief_map)
         self.assertEqual(self.world.target_regions, [])
         self.assertEqual(self.world.formation_specs, [])
+        self.assertEqual(self.world.formation_states, [])
 
     def test_map_accessor_shapes(self) -> None:
         explored = self.world.map.explored_mask()

@@ -15,15 +15,13 @@ from src.agents.base_agent import AgentRole
 from src.environment.world import World
 from src.simulation.simulation_engine import SimulationEngine, SimulationState
 from src.visualization.coordinate_transform import CoordinateTransform
+from src.visualization.comm_renderer import draw_communication_overlay
+from src.visualization.dashboard_renderer import draw_research_dashboard
+from src.visualization.formation_renderer import draw_world_formations
 from src.visualization.layer_toggles import LayerToggles
 from src.visualization.render_palette import (
     COLOR_AGENT_ID,
     COLOR_BACKGROUND,
-    COLOR_DASHBOARD_BG,
-    COLOR_DASHBOARD_BORDER,
-    COLOR_DASHBOARD_MUTED,
-    COLOR_DASHBOARD_TEXT,
-    COLOR_DASHBOARD_TITLE,
     COLOR_FRONTIER_CELL,
     COLOR_FRONTIER_CENTROID,
     COLOR_GRID_EXPLORED,
@@ -98,6 +96,10 @@ class PygameRenderer:
         self.fps = fps
         self.agent_radius_px = agent_radius_px
         self.toggles = LayerToggles()
+        if world.formation_specs or world.formation_states:
+            self.toggles.show_formations = True
+        if engine.formation_controller is not None:
+            self.toggles.show_communication = True
         self._history: list[SimulationState] = []
         self._transform = CoordinateTransform(
             world_width=world.width,
@@ -182,6 +184,32 @@ class PygameRenderer:
             self._draw_assigned_targets(target, state, pg)
         if self.toggles.show_velocity:
             self._draw_velocity_vectors(target, state, pg)
+        if self.toggles.show_communication:
+            controller = self.engine.formation_controller
+            draw_communication_overlay(
+                surface=target,
+                pg=pg,
+                graph=self.world.communication_graph,
+                agents=state.agents,
+                transform=self._transform,
+                neighbor_map=controller.neighbor_map if controller else None,
+                scaled_consensus=controller.scaled_consensus_commands if controller else None,
+                isolated_followers=controller.isolated_followers if controller else None,
+                consensus_active=state.metrics.consensus_active,
+                agent_radius_px=self.agent_radius_px,
+            )
+        if self.toggles.show_formations:
+            draw_world_formations(
+                surface=target,
+                pg=pg,
+                formation_specs=self.world.formation_specs,
+                formation_states=self.world.formation_states,
+                agents=state.agents,
+                transform=self._transform,
+                agent_radius_px=self.agent_radius_px,
+                timestep=state.timestep,
+                time_s=state.time_s,
+            )
         self._draw_agents(target, state, pg)
         self._draw_dashboard(target, state, pg)
 
@@ -304,59 +332,17 @@ class PygameRenderer:
                 surface.blit(label, (cx + self.agent_radius_px + 2, cy - self.agent_radius_px))
 
     def _draw_dashboard(self, surface: Any, state: SimulationState, pg: Any) -> None:
-        title_font = self._title_font
-        body_font = self._dashboard_font
-        if title_font is None or body_font is None:
+        if self._title_font is None or self._dashboard_font is None:
             return
-
-        metrics = state.metrics
-        panel_x = self.screen_width - DASHBOARD_WIDTH_PX
-        panel_rect = pg.Rect(panel_x, 0, DASHBOARD_WIDTH_PX, self.screen_height)
-        pg.draw.rect(surface, COLOR_DASHBOARD_BG, panel_rect)
-        pg.draw.line(
-            surface,
-            COLOR_DASHBOARD_BORDER,
-            (panel_x, 0),
-            (panel_x, self.screen_height),
-            width=1,
+        draw_research_dashboard(
+            surface=surface,
+            pg=pg,
+            state=state,
+            screen_width=self.screen_width,
+            screen_height=self.screen_height,
+            title_font=self._title_font,
+            body_font=self._dashboard_font,
         )
-
-        x = panel_x + 12
-        y = 14
-        title = title_font.render("Paper 1 — BSA Demo", True, COLOR_DASHBOARD_TITLE)
-        surface.blit(title, (x, y))
-        y += title_font.get_linesize() + 6
-
-        subtitle = body_font.render("DEBS Stage 2", True, COLOR_DASHBOARD_MUTED)
-        surface.blit(subtitle, (x, y))
-        y += body_font.get_linesize() + 12
-
-        lines = [
-            ("Mission time", f"{state.time_s:.1f} s"),
-            ("Step", str(state.timestep)),
-            ("Fleet size", str(len(state.agents))),
-            ("Coverage", f"{metrics.explored_fraction * 100:.1f} %"),
-            ("Mean speed", f"{metrics.mean_speed:.2f} m/s"),
-            ("Mean pair dist", f"{metrics.mean_pairwise_distance:.1f} m"),
-            ("Target sep", f"{metrics.mean_target_separation:.1f} m"),
-            ("Frontier reuse", f"{metrics.frontier_reuse_frequency:.3f}"),
-            ("Reassigns/step", str(metrics.target_reassignment_count)),
-            ("Revisit ratio", f"{metrics.revisit_ratio:.3f}"),
-            ("Active frontiers", str(metrics.active_frontier_count)),
-        ]
-        for label, value in lines:
-            label_surf = body_font.render(label, True, COLOR_DASHBOARD_MUTED)
-            value_surf = body_font.render(value, True, COLOR_DASHBOARD_TEXT)
-            surface.blit(label_surf, (x, y))
-            surface.blit(value_surf, (x + 110, y))
-            y += body_font.get_linesize() + 4
-
-        y += 8
-        hint_font = pg.font.SysFont("consolas", 11)
-        hints = ["G grid  F frontiers", "T trails  V velocity", "Y targets  S sensor"]
-        for hint in hints:
-            surface.blit(hint_font.render(hint, True, COLOR_DASHBOARD_MUTED), (x, y))
-            y += hint_font.get_linesize() + 2
 
     def _handle_events(self, pg: Any) -> bool:
         """Process pygame events. Returns False when the app should quit."""
