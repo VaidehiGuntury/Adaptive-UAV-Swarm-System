@@ -115,19 +115,6 @@ class UAV(BaseAgent):
         else:
             self.position = self.position + step
 
-    def apply_velocity_command(self, velocity_command: NDArray[np.float64], dt: float) -> None:
-        """Apply a direct velocity command with bounded speed (formation control)."""
-        velocity = np.asarray(velocity_command, dtype=np.float64)
-        norm = float(np.linalg.norm(velocity))
-        if norm < 1e-9:
-            self.velocity = np.zeros(2, dtype=np.float64)
-            return
-        if norm > self.max_speed:
-            velocity = velocity / norm * self.max_speed
-        self.velocity = velocity
-        self.heading = float(np.arctan2(velocity[1], velocity[0]))
-        self.position = self.position + velocity * dt
-
 
 def _wrap_angle(angle: float) -> float:
     """Wrap angle to [-pi, pi]."""

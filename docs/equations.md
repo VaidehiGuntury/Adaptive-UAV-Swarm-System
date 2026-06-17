@@ -32,9 +32,9 @@ Maps paper equations to `src/` modules and implementation status.
 | (2) | Augmented state T_i | `algorithms/formation/` | deferred |
 | (4) | Formation tracking objective | `algorithms/formation/` | deferred |
 | (5) | Grouping attractive field F_g | `algorithms/formation/` | deferred |
-| (6) | UGV control U_g | `algorithms/formation/formation_controller.py` | stub (leader only) |
-| (7) | UAV control U_a | `algorithms/formation/formation_controller.py` | implemented (P + consensus placeholder) |
-| (8) | General follower control | `algorithms/formation/consensus_controller.py` | implemented (lightweight) |
+| (6) | UGV control U_g | `algorithms/formation/` | deferred |
+| (7) | UAV control U_a | `algorithms/formation/` | deferred |
+| (8) | General follower control | `algorithms/formation/` | deferred |
 | (21–23) | APF repulsive forces | `algorithms/formation/` | deferred |
 | (25–26) | Rotational traction, piecewise U^total | `algorithms/formation/` | deferred |
 | (27–29) | Desired formations M_i(t) | `environment/formation_spec.py` | stub |

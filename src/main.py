@@ -14,10 +14,6 @@ from pathlib import Path
 import numpy as np
 
 from src.algorithms.aggregation.self_aggregation import SelfAggregationController
-from src.algorithms.formation.formation_controller import (
-    FormationAcquisitionConfig,
-    FormationAcquisitionController,
-)
 from src.agents.uav import spawn_uavs
 from src.config.loader import load_config
 from src.environment.world import World
@@ -52,16 +48,11 @@ def build_simulation(config_path: Path) -> tuple[SimulationEngine, SimulationRen
         rng=np.random.default_rng(config.environment.obstacle_seed),
     )
 
-    formation_controller = FormationAcquisitionController(
-        config=FormationAcquisitionConfig(),
-    )
-
     engine = SimulationEngine(
         world=world,
         agents=agents,
         aggregation=aggregation,
         config=config,
-        formation_controller=formation_controller,
     )
     renderer = SimulationRenderer(
         world=world,

@@ -96,15 +96,6 @@ class CommunicationGraph:
             return []
         return list(self._graph.successors(agent_id))
 
-    def is_follower_subgraph_connected(self, follower_ids: frozenset[int]) -> bool:
-        """True when follower nodes form one weakly connected component."""
-        if len(follower_ids) <= 1:
-            return True
-        subgraph = self._graph.subgraph(follower_ids)
-        if subgraph.number_of_nodes() != len(follower_ids):
-            return False
-        return nx.is_weakly_connected(subgraph)
-
     def edges(self) -> list[tuple[int, int, float]]:
         """Return all directed edges as (source, target, weight) tuples."""
         result: list[tuple[int, int, float]] = []

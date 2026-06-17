@@ -22,8 +22,6 @@ class LayerToggles:
     show_velocity: bool = True
     show_targets: bool = True
     show_sensor_radius: bool = True
-    show_formations: bool = False
-    show_communication: bool = False
 
     def handle_key(self, key: int, pg: Any) -> bool:
         """
@@ -38,8 +36,6 @@ class LayerToggles:
             pg.K_v: "show_velocity",
             pg.K_y: "show_targets",
             pg.K_s: "show_sensor_radius",
-            pg.K_m: "show_formations",
-            pg.K_c: "show_communication",
         }
         attr = key_map.get(key)
         if attr is None:
