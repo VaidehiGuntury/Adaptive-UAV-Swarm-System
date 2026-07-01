@@ -25,7 +25,11 @@ def build_simulation(config_path: Path) -> tuple[SimulationEngine, SimulationRen
     """Construct world, agents, aggregation, engine, and renderer from config."""
     config = load_config(config_path)
 
-    world = World.from_config(config.environment, config.uav)
+    world = World.from_config(
+        config.environment,
+        config.uav,
+        dynamic_config=config.dynamic_environment,
+    )
     spawn_center = np.array(
         [config.spawn_center_x, config.spawn_center_y],
         dtype=np.float64,

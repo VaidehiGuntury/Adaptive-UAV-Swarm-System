@@ -1,6 +1,41 @@
 # Paper 1 (DEBS) — self-aggregation exploration simulation
 # Layer 2/3 settings are intentionally absent in this iteration.
 
+# ---------------------------------------------------------------------------
+# Dynamic Environment Extension (SDS §27)
+# Set enabled: true to activate moving obstacles.
+# When enabled: false the simulator is identical to the original repository.
+# ---------------------------------------------------------------------------
+dynamic_environment:
+  enabled: false
+
+  # Scenario tag used for experiment labelling (SDS §35).
+  # Values: static | slow | equal_speed | fast | mixed
+  scenario: mixed
+
+  # Number of dynamic obstacles to spawn.
+  obstacle_count: 12
+
+  # Collision detection thresholds [m] (SDS §33).
+  collision_radius: 0.35
+  safety_margin: 0.75
+
+  # RNG seed for reproducible dynamic obstacle placement and motion.
+  random_seed: 42
+
+  # --- Per-model motion parameters ---
+
+  linear:
+    # Constant speed [m/s].  UAV max speed = 1.5 m/s.
+    speed: 0.5
+
+  waypoint:
+    speed: 1.0
+
+  random_walk:
+    speed: 0.8
+    turn_noise: 0.15
+
 environment:
   width: 100.0
   height: 100.0

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -55,6 +55,72 @@ class AggregationConfig:
 
 
 @dataclass(frozen=True)
+class LinearMotionConfig:
+    """Parameters for the constant-velocity obstacle motion model (SDS §24)."""
+
+    speed: float
+
+
+@dataclass(frozen=True)
+class WaypointMotionConfig:
+    """Parameters for the waypoint-following obstacle motion model (SDS §24)."""
+
+    speed: float
+
+
+@dataclass(frozen=True)
+class RandomWalkMotionConfig:
+    """Parameters for the random-walk obstacle motion model (SDS §24)."""
+
+    speed: float
+    turn_noise: float
+
+
+@dataclass(frozen=True)
+class DynamicEnvironmentConfig:
+    """
+    Configuration for the Dynamic Environment Extension (SDS §26–27).
+
+    When ``enabled`` is False the simulator behaves exactly like the
+    original repository — no ObstacleManager is created, no dynamic
+    obstacles are spawned, and no dynamic metrics are collected.
+
+    Attributes
+    ----------
+    enabled : bool
+        Master switch.  False ⟹ static environment (default).
+    scenario : str
+        Experiment scenario tag: ``static`` | ``slow`` | ``equal_speed``
+        | ``fast`` | ``mixed``.  Used for labelling only.
+    obstacle_count : int
+        Number of dynamic obstacles to spawn.
+    collision_radius : float
+        Surface-distance threshold for collision detection [m] (SDS §33).
+    safety_margin : float
+        Surface-distance threshold for near-miss detection [m] (SDS §33).
+        Must be >= collision_radius.
+    random_seed : int | None
+        RNG seed for reproducible obstacle placement and motion.
+    linear : LinearMotionConfig
+        Parameters for LinearObstacle instances.
+    waypoint : WaypointMotionConfig
+        Parameters for WaypointObstacle instances.
+    random_walk : RandomWalkMotionConfig
+        Parameters for RandomWalkObstacle instances.
+    """
+
+    enabled: bool
+    scenario: str
+    obstacle_count: int
+    collision_radius: float
+    safety_margin: float
+    random_seed: int | None
+    linear: LinearMotionConfig
+    waypoint: WaypointMotionConfig
+    random_walk: RandomWalkMotionConfig
+
+
+@dataclass(frozen=True)
 class SimulationConfig:
     """Top-level simulation settings."""
 
@@ -67,12 +133,55 @@ class SimulationConfig:
     spawn_center_x: float
     spawn_center_y: float
     animation_interval_ms: int
+    dynamic_environment: DynamicEnvironmentConfig | None = None
 
 
 def _require(mapping: dict[str, Any], key: str) -> Any:
     if key not in mapping:
         raise KeyError(f"Missing required configuration key: {key}")
     return mapping[key]
+
+
+def _load_dynamic_environment_config(
+    raw_dyn: dict[str, Any],
+) -> DynamicEnvironmentConfig:
+    """
+    Parse the ``dynamic_environment`` YAML section into a typed config object.
+
+    All sub-sections (``linear``, ``waypoint``, ``random_walk``) are optional
+    and fall back to the SDS §27 defaults when absent.
+
+    Parameters
+    ----------
+    raw_dyn:
+        The raw ``dynamic_environment`` mapping from the YAML file.
+
+    Returns
+    -------
+    DynamicEnvironmentConfig
+    """
+    lin_raw: dict[str, Any] = raw_dyn.get("linear", {})
+    wp_raw: dict[str, Any] = raw_dyn.get("waypoint", {})
+    rw_raw: dict[str, Any] = raw_dyn.get("random_walk", {})
+
+    return DynamicEnvironmentConfig(
+        enabled=bool(raw_dyn.get("enabled", False)),
+        scenario=str(raw_dyn.get("scenario", "mixed")),
+        obstacle_count=int(raw_dyn.get("obstacle_count", 12)),
+        collision_radius=float(raw_dyn.get("collision_radius", 0.35)),
+        safety_margin=float(raw_dyn.get("safety_margin", 0.75)),
+        random_seed=raw_dyn.get("random_seed"),
+        linear=LinearMotionConfig(
+            speed=float(lin_raw.get("speed", 0.5)),
+        ),
+        waypoint=WaypointMotionConfig(
+            speed=float(wp_raw.get("speed", 1.0)),
+        ),
+        random_walk=RandomWalkMotionConfig(
+            speed=float(rw_raw.get("speed", 0.8)),
+            turn_noise=float(rw_raw.get("turn_noise", 0.15)),
+        ),
+    )
 
 
 def load_config(path: str | Path) -> SimulationConfig:
@@ -85,6 +194,12 @@ def load_config(path: str | Path) -> SimulationConfig:
     uav = _require(raw, "uav")
     agg = _require(raw, "aggregation")
     sim = _require(raw, "simulation")
+
+    # ``dynamic_environment`` is optional — absent ⟹ None ⟹ static mode.
+    raw_dyn: dict[str, Any] | None = raw.get("dynamic_environment")
+    dyn_config: DynamicEnvironmentConfig | None = (
+        _load_dynamic_environment_config(raw_dyn) if raw_dyn is not None else None
+    )
 
     return SimulationConfig(
         environment=EnvironmentConfig(
@@ -122,4 +237,5 @@ def load_config(path: str | Path) -> SimulationConfig:
         spawn_center_x=float(_require(sim, "spawn_center_x")),
         spawn_center_y=float(_require(sim, "spawn_center_y")),
         animation_interval_ms=int(_require(sim, "animation_interval_ms")),
+        dynamic_environment=dyn_config,
     )

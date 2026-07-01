@@ -80,13 +80,33 @@ class SimulationEngine:
         return int(self.config.duration / self.config.dt)
 
     def step(self) -> SimulationMetrics:
-        """Execute one simulation timestep."""
+        """
+        Execute one simulation timestep.
+
+        Step order (SDS §29)
+        --------------------
+        1. Obstacle Update   — advance all dynamic obstacles (if enabled).
+        2. Aggregation       — BSA viewpoint selection per UAV.
+        3. UAV Update        — kinematic motion toward assigned target.
+        4. Collision Resolution — push UAVs out of static obstacles.
+        5. Boundary Clamp    — keep UAVs inside world bounds.
+        6. Map Update        — mark explored cells.
+        7. Metrics           — collect and record.
+        """
         dt = self.config.dt
+
+        # 1. Obstacle Update — must run before aggregation so UAVs react to
+        #    the latest obstacle state (SDS §29).
+        if self.world.obstacle_manager is not None:
+            self.world.obstacle_manager.update(dt)
+
+        # 2. Aggregation
         self.aggregation.begin_step()
 
         for agent in self.agents:
             self.aggregation.update(agent, self.agents, self.world, dt)
 
+        # 3–6. UAV kinematics, collision resolution, map update
         for agent in self.agents:
             agent.update(dt)
             agent.position = self.world.resolve_collisions(agent.position)
@@ -94,6 +114,7 @@ class SimulationEngine:
             self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
             self.agent_histories[agent.agent_id].append(agent.position.copy())
 
+        # 7. Metrics
         self.timestep += 1
         self.time_s += dt
         metrics = self._collect_metrics()
