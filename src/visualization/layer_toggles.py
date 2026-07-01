@@ -22,6 +22,9 @@ class LayerToggles:
     show_velocity: bool = True
     show_targets: bool = True
     show_sensor_radius: bool = True
+    # Dynamic environment overlays (SDS §37)
+    show_dynamic_predictions: bool = False  # predicted obstacle trajectory (D key)
+    show_dynamic_safety: bool = False        # safety-radius ring per obstacle (R key)
 
     def handle_key(self, key: int, pg: Any) -> bool:
         """
@@ -36,6 +39,8 @@ class LayerToggles:
             pg.K_v: "show_velocity",
             pg.K_y: "show_targets",
             pg.K_s: "show_sensor_radius",
+            pg.K_d: "show_dynamic_predictions",
+            pg.K_r: "show_dynamic_safety",
         }
         attr = key_map.get(key)
         if attr is None:

@@ -41,6 +41,16 @@ from src.visualization.render_palette import (
     DASHBOARD_WIDTH_PX,
     TRAIL_MAX_LENGTH,
     VELOCITY_ARROW_SCALE,
+    # Dynamic environment palette (SDS §37)
+    COLOR_DYN_EQUAL,
+    COLOR_DYN_FAST,
+    COLOR_DYN_PREDICTION,
+    COLOR_DYN_SAFETY,
+    COLOR_DYN_SLOW,
+    COLOR_DYN_VELOCITY,
+    DYN_PREDICTION_HORIZON_S,
+    DYN_SPEED_FAST_RATIO,
+    DYN_SPEED_SLOW_RATIO,
 )
 
 _AGENT_COLORS: dict[AgentRole, tuple[int, int, int]] = {
@@ -73,6 +83,58 @@ def _lerp_color(
         int(start[1] + (end[1] - start[1]) * t),
         int(start[2] + (end[2] - start[2]) * t),
     )
+
+
+def _draw_dashed_line(
+    surface: Any,
+    pg: Any,
+    color: tuple[int, int, int],
+    start: tuple[int, int],
+    end: tuple[int, int],
+    dash_length: int = 6,
+    gap_length: int = 4,
+    width: int = 1,
+) -> None:
+    """
+    Draw an approximated dashed line between *start* and *end* in screen space.
+
+    Used for the dynamic obstacle predicted trajectory overlay.  Draws
+    alternating filled and empty segments of *dash_length* / *gap_length*
+    pixels respectively.
+
+    Parameters
+    ----------
+    surface:
+        Pygame drawing surface.
+    pg:
+        Pygame module reference.
+    color:
+        RGB colour tuple.
+    start, end:
+        Integer pixel coordinates.
+    dash_length:
+        Length of each drawn segment [px].
+    gap_length:
+        Length of each gap between segments [px].
+    width:
+        Line width [px].
+    """
+    dx = end[0] - start[0]
+    dy = end[1] - start[1]
+    total = float(np.hypot(dx, dy))
+    if total < 1.0:
+        return
+    ux, uy = dx / total, dy / total
+    step = dash_length + gap_length
+    pos = 0.0
+    while pos < total:
+        dash_end = min(pos + dash_length, total)
+        x0 = int(start[0] + ux * pos)
+        y0 = int(start[1] + uy * pos)
+        x1 = int(start[0] + ux * dash_end)
+        y1 = int(start[1] + uy * dash_end)
+        pg.draw.line(surface, color, (x0, y0), (x1, y1), width)
+        pos += step
 
 
 class PygameRenderer:
@@ -174,6 +236,7 @@ class PygameRenderer:
         if self.toggles.show_frontiers:
             self._draw_frontiers(target, pg)
         self._draw_obstacles(target, pg)
+        self._draw_dynamic_obstacles(target, pg)
         if self.toggles.show_sensor_radius:
             self._draw_sensor_rings(target, state, pg)
         if self.toggles.show_trails:
@@ -219,6 +282,88 @@ class PygameRenderer:
             cx, cy = self._transform.world_to_screen(obstacle.center)
             radius_px = self._transform.world_radius_to_pixels(obstacle.radius)
             pg.draw.circle(surface, COLOR_OBSTACLE, (cx, cy), radius_px)
+
+    def _draw_dynamic_obstacles(self, surface: Any, pg: Any) -> None:
+        """
+        Render all active dynamic obstacles with speed-coded colours (SDS §37).
+
+        Colour classification is relative to the UAV's configured max speed:
+
+        - Slow  (speed < 0.8 × v_uav) → Green
+        - Equal (0.8 ≤ speed ≤ 1.2 × v_uav) → Orange
+        - Fast  (speed > 1.2 × v_uav) → Red
+
+        Each obstacle is drawn as a filled circle (body) plus an outlined
+        circle (boundary ring) for depth.  A velocity arrow extends from
+        the obstacle centre using the same arrowhead helper as UAV vectors.
+
+        Optional overlays (controlled by ``LayerToggles``):
+
+        - ``show_dynamic_predictions`` (D key): a line from current position
+          to predicted position at t + ``DYN_PREDICTION_HORIZON_S`` seconds.
+        - ``show_dynamic_safety`` (R key): a thin circle at the obstacle
+          boundary radius + the manager's safety_margin, visualising the
+          near-miss zone.
+
+        Performance
+        -----------
+        Guarded on ``world.obstacle_manager is not None`` so the loop is
+        entirely skipped in static mode with zero overhead.
+        """
+        manager = self.world.obstacle_manager
+        if manager is None:
+            return
+
+        uav_max_speed: float = self.engine.config.uav.max_speed
+        slow_threshold = DYN_SPEED_SLOW_RATIO * uav_max_speed
+        fast_threshold = DYN_SPEED_FAST_RATIO * uav_max_speed
+
+        for obstacle in manager:
+            if not obstacle.active:
+                continue
+
+            speed = float(np.linalg.norm(obstacle.velocity))
+            if speed < slow_threshold:
+                color = COLOR_DYN_SLOW
+            elif speed > fast_threshold:
+                color = COLOR_DYN_FAST
+            else:
+                color = COLOR_DYN_EQUAL
+
+            cx, cy = self._transform.world_to_screen(obstacle.position)
+            radius_px = self._transform.world_radius_to_pixels(obstacle.radius)
+
+            # Filled body
+            pg.draw.circle(surface, color, (cx, cy), radius_px)
+            # Boundary ring (slightly brighter)
+            pg.draw.circle(surface, color, (cx, cy), radius_px, width=2)
+
+            # Velocity vector
+            if speed > 1e-6:
+                end_pos = obstacle.position + obstacle.velocity * VELOCITY_ARROW_SCALE
+                p1 = self._transform.world_to_screen(end_pos)
+                pg.draw.line(surface, COLOR_DYN_VELOCITY, (cx, cy), p1, width=2)
+                self._draw_arrowhead(surface, pg, (cx, cy), p1, COLOR_DYN_VELOCITY)
+
+            # Optional: predicted trajectory
+            if self.toggles.show_dynamic_predictions:
+                predicted_pos = obstacle.predict_position(DYN_PREDICTION_HORIZON_S)
+                px_pred, py_pred = self._transform.world_to_screen(predicted_pos)
+                # Draw as a dashed line (approximated with short segments)
+                _draw_dashed_line(
+                    surface, pg,
+                    COLOR_DYN_PREDICTION,
+                    (cx, cy), (px_pred, py_pred),
+                    dash_length=6, gap_length=4,
+                )
+                pg.draw.circle(surface, COLOR_DYN_PREDICTION, (px_pred, py_pred), 3, width=1)
+
+            # Optional: safety radius ring
+            if self.toggles.show_dynamic_safety:
+                safety_radius_px = self._transform.world_radius_to_pixels(
+                    obstacle.radius + manager.safety_margin
+                )
+                pg.draw.circle(surface, COLOR_DYN_SAFETY, (cx, cy), safety_radius_px, width=1)
 
     def _draw_sensor_rings(self, surface: Any, state: SimulationState, pg: Any) -> None:
         sensing_range = self.engine.config.uav.sensing_range
@@ -353,7 +498,12 @@ class PygameRenderer:
 
         y += 8
         hint_font = pg.font.SysFont("consolas", 11)
-        hints = ["G grid  F frontiers", "T trails  V velocity", "Y targets  S sensor"]
+        hints = [
+            "G grid  F frontiers",
+            "T trails  V velocity",
+            "Y targets  S sensor",
+            "D dyn-predict  R safety",
+        ]
         for hint in hints:
             surface.blit(hint_font.render(hint, True, COLOR_DASHBOARD_MUTED), (x, y))
             y += hint_font.get_linesize() + 2

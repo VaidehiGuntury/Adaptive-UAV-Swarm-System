@@ -7,7 +7,7 @@
 # When enabled: false the simulator is identical to the original repository.
 # ---------------------------------------------------------------------------
 dynamic_environment:
-  enabled: false
+  enabled: true
 
   # Scenario tag used for experiment labelling (SDS §35).
   # Values: static | slow | equal_speed | fast | mixed

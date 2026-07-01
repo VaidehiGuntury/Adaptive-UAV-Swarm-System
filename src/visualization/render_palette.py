@@ -40,3 +40,24 @@ COLOR_DASHBOARD_MUTED = (140, 148, 158)
 TRAIL_MAX_LENGTH = 150
 VELOCITY_ARROW_SCALE = 2.0
 DASHBOARD_WIDTH_PX = 220
+
+# ---------------------------------------------------------------------------
+# Dynamic obstacle colors (SDS §37)
+# Classified by speed relative to UAV max speed (1.5 m/s):
+#   Slow  : speed < 0.8 × v_uav   → Green
+#   Equal : 0.8 ≤ speed ≤ 1.2 × v_uav → Orange
+#   Fast  : speed > 1.2 × v_uav   → Red
+# ---------------------------------------------------------------------------
+COLOR_DYN_SLOW = (80, 200, 120)       # green
+COLOR_DYN_EQUAL = (255, 160, 60)      # orange
+COLOR_DYN_FAST = (230, 80, 70)        # red
+COLOR_DYN_VELOCITY = (200, 230, 255)  # light blue — distinct from UAV velocity arrows
+COLOR_DYN_SAFETY = (100, 100, 60)     # muted yellow — safety radius ring
+COLOR_DYN_PREDICTION = (160, 100, 200)  # purple — predicted trajectory
+
+# Fraction of UAV max speed used to classify obstacle speed category
+DYN_SPEED_SLOW_RATIO = 0.8    # below this → Slow
+DYN_SPEED_FAST_RATIO = 1.2    # above this → Fast
+
+# Prediction horizon [s] for optional trajectory overlay
+DYN_PREDICTION_HORIZON_S = 1.5
