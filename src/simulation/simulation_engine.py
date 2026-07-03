@@ -18,6 +18,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from src.algorithms.aggregation.self_aggregation import SelfAggregationController
+from src.algorithms.allocation import IDEAllocator
 from src.agents.uav import UAV
 from src.config.loader import SimulationConfig
 from src.environment.world import World
@@ -74,6 +75,20 @@ class SimulationEngine:
         self.agent_histories: dict[int, list[NDArray[np.float64]]] = {
             agent.agent_id: [agent.position.copy()] for agent in agents
         }
+        # Mission radius is read from config once and reused in set_region() calls.
+        self._mission_radius: float = config.aggregation.mission_region_radius
+        # IDE allocator (DEBS §4). None when the ide: block is absent from YAML.
+        if config.ide is not None:
+            self._ide_allocator: IDEAllocator | None = IDEAllocator(
+                config=config.ide,
+                world_bounds=config.world_bounds,
+            )
+        else:
+            self._ide_allocator = None
+        
+        # Tracks the last simulation time at which IDE allocation ran.
+        # IDE is gated to run once per BSA replan cycle, not every step.
+        self._last_ide_time: float = -float("inf")
 
     @property
     def total_steps(self) -> int:
@@ -83,6 +98,28 @@ class SimulationEngine:
         """Execute one simulation timestep."""
         dt = self.config.dt
         self.aggregation.begin_step()
+
+        # --- IDE allocation (DEBS §4 Algorithm 2) ---------------------------
+        # IDE updates each UAV's p̃* BEFORE BSA reads J_C so that the cost
+        # function always uses the most recently negotiated region centres.
+        # This matches the integration order specified in DEBS Algorithm 2.
+        # When self._ide_allocator is None the block is skipped entirely and
+        # the simulation is identical to the pre-IDE baseline.
+        if self._ide_allocator is not None:
+            elapsed_since_ide = self.time_s - self._last_ide_time
+            if elapsed_since_ide >= self.config.aggregation.replan_interval:
+                new_allocations = self._ide_allocator.allocate(
+                    self.agents,
+                    self.time_s,
+                )
+                for agent in self.agents:
+                    if agent.agent_id in new_allocations:
+                        agent.set_region(
+                            new_allocations[agent.agent_id],
+                            self._mission_radius,
+                        )
+                self._last_ide_time = self.time_s
+        # --- BSA aggregation -------------------------------------------------
 
         for agent in self.agents:
             self.aggregation.update(agent, self.agents, self.world, dt)
