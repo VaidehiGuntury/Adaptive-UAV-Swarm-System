@@ -1,5 +1,4 @@
-# Paper 1 (DEBS) — self-aggregation exploration simulation
-# Layer 2/3 settings are intentionally absent in this iteration.
+# Search experiment: 30 UAVs, static environment
 
 environment:
   width: 100.0
@@ -10,54 +9,47 @@ environment:
   obstacle_seed: 42
 
 uav:
-  # Paper 1 dynamics (Sec. 2.3, experiments)
   max_speed: 1.5
   max_angular_velocity: 0.9
   sensing_range: 4.5
-  initial_spread_radius: 20.0
+  initial_spread_radius: 25.0
   spawn_mode: ring
   spawn_angular_noise: 0.15
 
 aggregation:
-  # Paper 1 Eq. (7) utility U_a distance thresholds
   d_c: 0.5
   d_0: 12.0
   k_a: 1.0
   turn_cost_weight: 1.0
-  # Eq. (10) trail penalty — raised after geographic trail fix (see docs/assumptions.md)
   trail_penalty: 8.0
-  # Composite viewpoint cost weights (Sec. 5 — BSA + navigation + penalty)
   cluster_penalty_weight: 1.0
   turn_penalty_weight: 0.5
   trail_penalty_weight: 1.0
   candidates_per_frontier: 6
-  # Mission region radius ≈ max detection range (Paper 1 task allocation model)
   mission_region_radius: 4.5
   replan_interval: 2.0
 
 simulation:
-  num_uavs: 10
+  num_uavs: 30
   dt: 0.1
-  duration: 120.0
+  duration: 300.0
   spawn_center_x: 50.0
   spawn_center_y: 50.0
   animation_interval_ms: 50
 
-# Search & Tracking extension (Layer 3)
-# Remove this section or set enabled: false to run exploration-only.
 search:
   enabled: true
   targets:
-    count_static: 3
-    count_dynamic: 3
-    count_time_varying: 2
+    count_static: 5
+    count_dynamic: 0
+    count_time_varying: 0
     spawn_margin: 5.0
     min_separation: 8.0
     dynamic_speed_min: 0.3
     dynamic_speed_max: 0.8
-    seed: 123
+    seed: 100
   detection:
-    detection_radius: 0.0   # 0.0 → use UAV sensing_range
+    detection_radius: 0.0
     base_confidence: 0.85
     confidence_decay_rate: 0.05
     confidence_merge_alpha: 0.6
@@ -93,6 +85,6 @@ search:
     reacquisition_search_radius: 12.0
     visibility_sample_interval_s: 1.0
   mission:
-    exploration_completion_threshold: 0.25   # lowered for 120s demo; use 0.85 for full experiments
+    exploration_completion_threshold: 0.85
     search_timeout_s: 300.0
-    min_coverage_before_search: 0.20
+    min_coverage_before_search: 0.70

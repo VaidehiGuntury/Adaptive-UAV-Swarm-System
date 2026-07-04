@@ -8,12 +8,16 @@ allocation (Sec. 4) without implementing IDE in this iteration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 import numpy as np
 from numpy.typing import NDArray
 
 from src.agents.base_agent import AgentRole, BaseAgent
+
+if TYPE_CHECKING:
+    # Avoid circular import — SearchAgentState is only used for type hints
+    from src.search.search_controller import SearchAgentState
 
 SpawnMode = Literal["ring", "legacy"]
 
@@ -52,6 +56,8 @@ class UAV(BaseAgent):
     assigned_target: NDArray[np.float64] | None = None
     max_speed: float = 1.5
     max_angular_velocity: float = 0.9
+    # Search extension: carries per-agent search FSM state (None during exploration)
+    search_state: Any | None = field(default=None, repr=False)
 
     @property
     def role(self) -> AgentRole:
