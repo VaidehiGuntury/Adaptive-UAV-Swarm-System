@@ -14,6 +14,7 @@ class LayerToggles:
     Per-layer visibility flags for the Paper 1 research demo.
 
     Defaults favour BSA storytelling: grid off, exploration overlays on.
+    Search extension layers default on when search phase is active.
     """
 
     show_grid: bool = False
@@ -22,6 +23,10 @@ class LayerToggles:
     show_velocity: bool = True
     show_targets: bool = True
     show_sensor_radius: bool = True
+    # Search extension toggles
+    show_search_targets: bool = True    # H key — search target symbols
+    show_tracking_paths: bool = True    # K key — tracking history polylines
+    show_detection_rings: bool = False  # D key — detection radius circles
 
     def handle_key(self, key: int, pg: Any) -> bool:
         """
@@ -36,6 +41,9 @@ class LayerToggles:
             pg.K_v: "show_velocity",
             pg.K_y: "show_targets",
             pg.K_s: "show_sensor_radius",
+            pg.K_h: "show_search_targets",
+            pg.K_k: "show_tracking_paths",
+            pg.K_d: "show_detection_rings",
         }
         attr = key_map.get(key)
         if attr is None:
