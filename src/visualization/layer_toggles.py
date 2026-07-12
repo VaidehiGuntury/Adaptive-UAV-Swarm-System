@@ -23,16 +23,13 @@ class LayerToggles:
     show_velocity: bool = True
     show_targets: bool = True
     show_sensor_radius: bool = True
-<<<<<<< HEAD
     # Search extension toggles
     show_search_targets: bool = True    # H key — search target symbols
     show_tracking_paths: bool = True    # K key — tracking history polylines
     show_detection_rings: bool = False  # D key — detection radius circles
-=======
     # Dynamic environment overlays (SDS §37)
-    show_dynamic_predictions: bool = False  # predicted obstacle trajectory (D key)
+    show_dynamic_predictions: bool = False  # predicted obstacle trajectory (P key)
     show_dynamic_safety: bool = False        # safety-radius ring per obstacle (R key)
->>>>>>> origin/feature/dynamic-environment
 
     def handle_key(self, key: int, pg: Any) -> bool:
         """
@@ -47,14 +44,11 @@ class LayerToggles:
             pg.K_v: "show_velocity",
             pg.K_y: "show_targets",
             pg.K_s: "show_sensor_radius",
-<<<<<<< HEAD
             pg.K_h: "show_search_targets",
             pg.K_k: "show_tracking_paths",
             pg.K_d: "show_detection_rings",
-=======
-            pg.K_d: "show_dynamic_predictions",
+            pg.K_p: "show_dynamic_predictions",
             pg.K_r: "show_dynamic_safety",
->>>>>>> origin/feature/dynamic-environment
         }
         attr = key_map.get(key)
         if attr is None:

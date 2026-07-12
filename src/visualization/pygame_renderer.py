@@ -319,7 +319,7 @@ class PygameRenderer:
 
         Optional overlays (controlled by ``LayerToggles``):
 
-        - ``show_dynamic_predictions`` (D key): a line from current position
+        - ``show_dynamic_predictions`` (P key): a line from current position
           to predicted position at t + ``DYN_PREDICTION_HORIZON_S`` seconds.
         - ``show_dynamic_safety`` (R key): a thin circle at the obstacle
           boundary radius + the manager's safety_margin, visualising the
@@ -534,11 +534,8 @@ class PygameRenderer:
             "G grid  F frontiers",
             "T trails  V velocity",
             "Y targets  S sensor",
-<<<<<<< HEAD
             "H search  K tracks  D detect",
-=======
-            "D dyn-predict  R safety",
->>>>>>> origin/feature/dynamic-environment
+            "P dyn-predict  R safety",
         ]
         for hint in hints:
             surface.blit(hint_font.render(hint, True, COLOR_DASHBOARD_MUTED), (x, y))

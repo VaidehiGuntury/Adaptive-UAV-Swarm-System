@@ -20,10 +20,8 @@ from src.environment.obstacle_manager import ObstacleManager
 from src.environment.obstacles import ObstacleField, generate_obstacles
 from src.environment.target_region import TargetRegion
 
-<<<<<<< HEAD
 if TYPE_CHECKING:
     from src.search.target_manager import TargetManager
-=======
 # ---------------------------------------------------------------------------
 # Scenario speed-range tables (SDS §35)
 # All values are multipliers of UAV max_speed (default 1.5 m/s).
@@ -46,7 +44,6 @@ _FAST_RANGE = (1.200, 1.533)    # × v_uav → 1.8–2.3 m/s when v_uav = 1.5
 # Supported scenario names and whether they produce dynamic obstacles
 _DYNAMIC_SCENARIOS = frozenset({"slow", "equal_speed", "fast", "mixed", "custom"})
 _STATIC_SCENARIOS = frozenset({"static"})
->>>>>>> origin/feature/dynamic-environment
 
 
 class World:
@@ -71,13 +68,10 @@ class World:
         self.belief_map = belief_map
         self.target_regions: list[TargetRegion] = list(target_regions or [])
         self.formation_specs: list[FormationSpec] = list(formation_specs or [])
-<<<<<<< HEAD
         # Search extension: populated by MissionOrchestrator at phase transition
         self.target_manager: TargetManager | None = None
-=======
         # Dynamic obstacle manager (SDS §28).  None ⟹ static environment.
         self.obstacle_manager: ObstacleManager | None = obstacle_manager
->>>>>>> origin/feature/dynamic-environment
         self.map = ExplorationMap(
             width=width,
             height=height,

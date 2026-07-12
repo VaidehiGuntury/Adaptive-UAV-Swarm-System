@@ -64,9 +64,7 @@ COLOR_DASHBOARD_MUTED = (140, 148, 158)
 TRAIL_MAX_LENGTH = 150
 VELOCITY_ARROW_SCALE = 2.0
 DASHBOARD_WIDTH_PX = 220
-<<<<<<< HEAD
 TRACKING_PATH_MAX_LENGTH = 80
-=======
 
 # ---------------------------------------------------------------------------
 # Dynamic obstacle colors (SDS §37)
@@ -88,4 +86,3 @@ DYN_SPEED_FAST_RATIO = 1.2    # above this → Fast
 
 # Prediction horizon [s] for optional trajectory overlay
 DYN_PREDICTION_HORIZON_S = 1.5
->>>>>>> origin/feature/dynamic-environment
