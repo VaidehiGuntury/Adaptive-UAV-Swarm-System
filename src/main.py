@@ -4,6 +4,7 @@ Entry point for Paper 1 self-aggregation swarm simulation.
 Usage (from project root):
     python -m src.main
     python -m src.main --config configs/simulation.yaml --no-show
+    python -m src.main --config configs/simulation.yaml --search
 """
 
 from __future__ import annotations
@@ -55,6 +56,18 @@ def build_simulation(config_path: Path) -> tuple[SimulationEngine, SimulationRen
         aggregation=aggregation,
         config=config,
     )
+
+    # Wire up search extension if config present and enabled
+    if config.search is not None and config.search.enabled:
+        from src.search.mission_phase import MissionOrchestrator
+        orchestrator = MissionOrchestrator(
+            config=config.search,
+            world=world,
+            agents=agents,
+            rng=np.random.default_rng(config.environment.obstacle_seed + 1),
+        )
+        engine.mission_orchestrator = orchestrator
+
     renderer = SimulationRenderer(
         world=world,
         engine=engine,
@@ -88,8 +101,8 @@ def main() -> None:
         print(
             f"Simulation complete: {final.timestep} steps ({final.time_s:.1f}s), "
             f"explored {final.explored_fraction * 100:.1f}%, "
-            f"frontier_reuse {final.frontier_reuse_frequency:.3f}, "
-            f"mean speed {final.mean_speed:.2f} m/s"
+            f"phase={final.mission_phase}, "
+            f"completed_targets={final.completed_targets}"
         )
 
 

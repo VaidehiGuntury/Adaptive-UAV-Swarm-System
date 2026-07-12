@@ -7,6 +7,8 @@ viewpoint selection (Paper 1 Sec. 5). Optional subsystems support Papers 2–3.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Any
+
 import numpy as np
 
 from src.config.loader import EnvironmentConfig, UAVConfig
@@ -16,6 +18,9 @@ from src.environment.formation_spec import FormationSpec
 from src.environment.map import ExplorationMap
 from src.environment.obstacles import ObstacleField, generate_obstacles
 from src.environment.target_region import TargetRegion
+
+if TYPE_CHECKING:
+    from src.search.target_manager import TargetManager
 
 
 class World:
@@ -39,6 +44,8 @@ class World:
         self.belief_map = belief_map
         self.target_regions: list[TargetRegion] = list(target_regions or [])
         self.formation_specs: list[FormationSpec] = list(formation_specs or [])
+        # Search extension: populated by MissionOrchestrator at phase transition
+        self.target_manager: TargetManager | None = None
         self.map = ExplorationMap(
             width=width,
             height=height,

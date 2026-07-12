@@ -3,9 +3,10 @@ Simulation loop for Paper 1 decentralized exploration.
 
 Responsibilities:
   - advance time
-  - update BSA aggregation decisions
+  - update BSA aggregation decisions (EXPLORING phase)
   - update UAV kinematics
   - collect metrics and agent trajectories
+  - drive MissionOrchestrator for search phase (SEARCHING phase)
 
 Visualization is intentionally excluded (see src/visualization/renderer.py).
 """
@@ -13,6 +14,7 @@ Visualization is intentionally excluded (see src/visualization/renderer.py).
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 import numpy as np
 from numpy.typing import NDArray
@@ -27,6 +29,9 @@ from src.evaluation.exploration_metrics import (
     mean_target_separation,
     revisit_ratio,
 )
+
+if TYPE_CHECKING:
+    from src.search.mission_phase import MissionOrchestrator, MissionPhase
 
 
 @dataclass(frozen=True)
@@ -43,6 +48,13 @@ class SimulationMetrics:
     target_reassignment_count: int
     revisit_ratio: float
     active_frontier_count: int
+    # Search extension metrics (None during exploration phase)
+    mission_phase: str = "exploring"
+    detected_targets: int = 0
+    assigned_targets: int = 0
+    tracking_targets: int = 0
+    completed_targets: int = 0
+    lost_targets: int = 0
 
 
 @dataclass
@@ -75,7 +87,7 @@ class SimulationEngine:
         self.agent_histories: dict[int, list[NDArray[np.float64]]] = {
             agent.agent_id: [agent.position.copy()] for agent in agents
         }
-        # Mission radius is read from config once and reused in set_region() calls.
+# Mission radius is read from config once and reused in set_region() calls.
         self._mission_radius: float = config.aggregation.mission_region_radius
         # IDE allocator (DEBS §4). None when the ide: block is absent from YAML.
         if config.ide is not None:
@@ -85,10 +97,13 @@ class SimulationEngine:
             )
         else:
             self._ide_allocator = None
-        
+
         # Tracks the last simulation time at which IDE allocation ran.
         # IDE is gated to run once per BSA replan cycle, not every step.
         self._last_ide_time: float = -float("inf")
+
+        # Search extension: populated in build_simulation() when search config present
+        self.mission_orchestrator: MissionOrchestrator | None = None
 
     @property
     def total_steps(self) -> int:
@@ -97,12 +112,11 @@ class SimulationEngine:
     def step(self) -> SimulationMetrics:
         """Execute one simulation timestep."""
         dt = self.config.dt
-        self.aggregation.begin_step()
 
-        # --- IDE allocation (DEBS §4 Algorithm 2) ---------------------------
+# --- IDE allocation (DEBS §4 Algorithm 2) ---------------------------
         # IDE updates each UAV's p̃* BEFORE BSA reads J_C so that the cost
         # function always uses the most recently negotiated region centres.
-        # This matches the integration order specified in DEBS Algorithm 2.
+        # Runs once per BSA replan cycle, not every step.
         # When self._ide_allocator is None the block is skipped entirely and
         # the simulation is identical to the pre-IDE baseline.
         if self._ide_allocator is not None:
@@ -119,20 +133,49 @@ class SimulationEngine:
                             self._mission_radius,
                         )
                 self._last_ide_time = self.time_s
-        # --- BSA aggregation -------------------------------------------------
 
+        # --- Mission phase detection (Search extension) ----------------------
+        is_searching = (
+            self.mission_orchestrator is not None
+            and self.mission_orchestrator.phase.name in ("SEARCHING", "COMPLETED")
+        )
+        is_transitioning = (
+            self.mission_orchestrator is not None
+            and self.mission_orchestrator.phase.name == "SEARCH_TRANSITION"
+        )
+
+        # --- BSA aggregation -------------------------------------------------
         for agent in self.agents:
             self.aggregation.update(agent, self.agents, self.world, dt)
 
+        if not is_searching and not is_transitioning:
+            # ── EXPLORATION PHASE ── BSA is active
+            self.aggregation.begin_step()
+            for agent in self.agents:
+                self.aggregation.update(agent, self.agents, self.world, dt)
+
+        # Kinematics always advance
         for agent in self.agents:
             agent.update(dt)
             agent.position = self.world.resolve_collisions(agent.position)
             agent.position = self.world.clip_position(agent.position)
-            self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
+            if not is_searching and not is_transitioning:
+                # Only mark explored during exploration phase
+                self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
             self.agent_histories[agent.agent_id].append(agent.position.copy())
+
+        # Also mark explored during transition (UAVs still cover ground)
+        if is_transitioning:
+            for agent in self.agents:
+                self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
 
         self.timestep += 1
         self.time_s += dt
+
+        # Advance mission orchestrator (handles phase transitions and search logic)
+        if self.mission_orchestrator is not None:
+            self.mission_orchestrator.step(self.time_s, dt)
+
         metrics = self._collect_metrics()
         self.metrics_history.append(metrics)
         return metrics
@@ -166,6 +209,25 @@ class SimulationEngine:
 
         frontier_clusters = self.world.map.extract_frontier_clusters()
 
+        # Search phase metrics
+        phase_name = "exploring"
+        detected = assigned = tracking = completed = lost = 0
+        if self.mission_orchestrator is not None:
+            phase_name = self.mission_orchestrator.phase.name.lower()
+            tm = self.mission_orchestrator.target_manager
+            from src.search.target import TargetStatus
+            for t in tm.all_targets():
+                if t.status == TargetStatus.DETECTED:
+                    detected += 1
+                elif t.status in (TargetStatus.ASSIGNED, TargetStatus.SEARCHING):
+                    assigned += 1
+                elif t.status == TargetStatus.TRACKING:
+                    tracking += 1
+                elif t.status == TargetStatus.COMPLETED:
+                    completed += 1
+                elif t.status == TargetStatus.LOST:
+                    lost += 1
+
         return SimulationMetrics(
             timestep=self.timestep,
             time_s=self.time_s,
@@ -179,4 +241,10 @@ class SimulationEngine:
             target_reassignment_count=self.aggregation.step_reassignment_count,
             revisit_ratio=revisit_ratio(self.agent_histories, self.world.map),
             active_frontier_count=len(frontier_clusters),
+            mission_phase=phase_name,
+            detected_targets=detected,
+            assigned_targets=assigned,
+            tracking_targets=tracking,
+            completed_targets=completed,
+            lost_targets=lost,
         )

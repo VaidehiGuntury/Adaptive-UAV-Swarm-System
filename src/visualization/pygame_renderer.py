@@ -38,8 +38,20 @@ from src.visualization.render_palette import (
     COLOR_UGV,
     COLOR_UAV,
     COLOR_VELOCITY,
+    # Search extension colours
+    COLOR_ASSIGNMENT_LINE,
+    COLOR_DETECTION_RING,
+    COLOR_TARGET_COMPLETED,
+    COLOR_TARGET_DYNAMIC,
+    COLOR_TARGET_LOST,
+    COLOR_TARGET_STATIC,
+    COLOR_TARGET_TIME_VARYING,
+    COLOR_TARGET_TRACKED,
+    COLOR_TRACKING_PATH_NEW,
+    COLOR_TRACKING_PATH_OLD,
     DASHBOARD_WIDTH_PX,
     TRAIL_MAX_LENGTH,
+    TRACKING_PATH_MAX_LENGTH,
     VELOCITY_ARROW_SCALE,
 )
 
@@ -183,6 +195,14 @@ class PygameRenderer:
         if self.toggles.show_velocity:
             self._draw_velocity_vectors(target, state, pg)
         self._draw_agents(target, state, pg)
+        # Search extension layers (only active when target_manager is populated)
+        if self.world.target_manager is not None:
+            if self.toggles.show_detection_rings:
+                self._draw_detection_rings(target, state, pg)
+            if self.toggles.show_search_targets:
+                self._draw_search_targets(target, pg)
+            if self.toggles.show_tracking_paths:
+                self._draw_tracking_paths(target, pg)
         self._draw_dashboard(target, state, pg)
 
     def _draw_exploration_grid(self, surface: Any, pg: Any) -> None:
@@ -327,7 +347,7 @@ class PygameRenderer:
         surface.blit(title, (x, y))
         y += title_font.get_linesize() + 6
 
-        subtitle = body_font.render("DEBS Stage 2", True, COLOR_DASHBOARD_MUTED)
+        subtitle = body_font.render("DEBS + Search Extension", True, COLOR_DASHBOARD_MUTED)
         surface.blit(subtitle, (x, y))
         y += body_font.get_linesize() + 12
 
@@ -343,7 +363,19 @@ class PygameRenderer:
             ("Reassigns/step", str(metrics.target_reassignment_count)),
             ("Revisit ratio", f"{metrics.revisit_ratio:.3f}"),
             ("Active frontiers", str(metrics.active_frontier_count)),
+            ("Phase", metrics.mission_phase.upper()),
         ]
+
+        # Search metrics when in search phase
+        if metrics.mission_phase not in ("exploring", "search_transition"):
+            lines += [
+                ("Detected", str(metrics.detected_targets)),
+                ("Assigned", str(metrics.assigned_targets)),
+                ("Tracking", str(metrics.tracking_targets)),
+                ("Completed", str(metrics.completed_targets)),
+                ("Lost", str(metrics.lost_targets)),
+            ]
+
         for label, value in lines:
             label_surf = body_font.render(label, True, COLOR_DASHBOARD_MUTED)
             value_surf = body_font.render(value, True, COLOR_DASHBOARD_TEXT)
@@ -353,10 +385,147 @@ class PygameRenderer:
 
         y += 8
         hint_font = pg.font.SysFont("consolas", 11)
-        hints = ["G grid  F frontiers", "T trails  V velocity", "Y targets  S sensor"]
+        hints = [
+            "G grid  F frontiers",
+            "T trails  V velocity",
+            "Y targets  S sensor",
+            "H search  K tracks  D detect",
+        ]
         for hint in hints:
             surface.blit(hint_font.render(hint, True, COLOR_DASHBOARD_MUTED), (x, y))
             y += hint_font.get_linesize() + 2
+
+    # ------------------------------------------------------------------
+    # Search extension draw methods
+    # ------------------------------------------------------------------
+
+    def _draw_search_targets(self, surface: Any, pg: Any) -> None:
+        """
+        Draw search targets with type/status-specific symbols.
+
+        Static    — white diamond
+        Dynamic   — amber circle with movement arrow
+        TimeVarying — violet square
+        Tracked   — bright green ring
+        Completed — small teal cross
+        Lost      — red X
+        """
+        from src.search.target import TargetStatus, TargetType
+
+        tm = self.world.target_manager
+        if tm is None:
+            return
+
+        for target in tm.all_targets():
+            cx, cy = self._transform.world_to_screen(target.position)
+
+            status = target.status
+            ttype = target.target_type
+
+            if status == TargetStatus.COMPLETED:
+                # Small teal cross
+                sz = 4
+                pg.draw.line(surface, COLOR_TARGET_COMPLETED,
+                             (cx - sz, cy), (cx + sz, cy), 2)
+                pg.draw.line(surface, COLOR_TARGET_COMPLETED,
+                             (cx, cy - sz), (cx, cy + sz), 2)
+                continue
+
+            if status == TargetStatus.LOST:
+                # Red X
+                sz = 5
+                pg.draw.line(surface, COLOR_TARGET_LOST,
+                             (cx - sz, cy - sz), (cx + sz, cy + sz), 2)
+                pg.draw.line(surface, COLOR_TARGET_LOST,
+                             (cx + sz, cy - sz), (cx - sz, cy + sz), 2)
+                continue
+
+            # Choose body colour
+            if ttype == TargetType.STATIC:
+                body_color = COLOR_TARGET_STATIC
+            elif ttype == TargetType.DYNAMIC:
+                body_color = COLOR_TARGET_DYNAMIC
+            else:
+                body_color = COLOR_TARGET_TIME_VARYING
+
+            # Draw body shape
+            if ttype == TargetType.STATIC:
+                # Diamond
+                sz = 6
+                diamond = [(cx, cy - sz), (cx + sz, cy), (cx, cy + sz), (cx - sz, cy)]
+                pg.draw.polygon(surface, body_color, diamond)
+                pg.draw.polygon(surface, body_color, diamond, 1)
+            elif ttype == TargetType.TIME_VARYING:
+                # Square
+                sz = 5
+                rect = pg.Rect(cx - sz, cy - sz, sz * 2, sz * 2)
+                pg.draw.rect(surface, body_color, rect, 2)
+            else:
+                # Filled circle for dynamic
+                pg.draw.circle(surface, body_color, (cx, cy), 5)
+
+            # Tracking ring overlay
+            if status == TargetStatus.TRACKING:
+                pg.draw.circle(surface, COLOR_TARGET_TRACKED, (cx, cy), 9, 2)
+
+            # Assignment line: UAV → target
+            if target.assigned_uav is not None:
+                for agent in self.engine.agents:
+                    if agent.agent_id == target.assigned_uav:
+                        ax, ay = self._transform.world_to_screen(agent.position)
+                        pg.draw.line(surface, COLOR_ASSIGNMENT_LINE,
+                                     (ax, ay), (cx, cy), 1)
+                        break
+
+            # Target ID label
+            font = self._font
+            if font is not None:
+                lbl = font.render(f"T{target.target_id}", True, body_color)
+                surface.blit(lbl, (cx + 7, cy - 7))
+
+    def _draw_tracking_paths(self, surface: Any, pg: Any) -> None:
+        """
+        Draw tracking history polylines for all targets.
+
+        Fades old → new using TRACKING_PATH_OLD → TRACKING_PATH_NEW.
+        """
+        tm = self.world.target_manager
+        if tm is None:
+            return
+
+        for target in tm.all_targets():
+            history = target.tracking_history
+            if len(history) < 2:
+                continue
+            trail = history[-TRACKING_PATH_MAX_LENGTH:]
+            for idx in range(1, len(trail)):
+                t = idx / max(1, len(trail) - 1)
+                color = _lerp_color(COLOR_TRACKING_PATH_OLD, COLOR_TRACKING_PATH_NEW, t)
+                p0 = self._transform.world_to_screen(trail[idx - 1][1])
+                p1 = self._transform.world_to_screen(trail[idx][1])
+                pg.draw.line(surface, color, p0, p1, width=1)
+
+    def _draw_detection_rings(
+        self, surface: Any, state: SimulationState, pg: Any
+    ) -> None:
+        """
+        Draw per-UAV detection radius rings (separate from BSA sensing ring).
+
+        Only draws when a DetectionSystem is available via the orchestrator.
+        """
+        try:
+            from src.search.mission_phase import MissionPhase
+            orch = self.engine.mission_orchestrator
+            if orch is None:
+                return
+            det_radius = orch.detection_system.detection_radius
+            radius_px = self._transform.world_radius_to_pixels(det_radius)
+            for agent in state.agents:
+                cx, cy = self._transform.world_to_screen(agent.position)
+                pg.draw.circle(surface, COLOR_DETECTION_RING,
+                               (cx, cy), radius_px, width=1)
+        except Exception:
+            pass  # graceful degradation if orchestrator not available
 
     def _handle_events(self, pg: Any) -> bool:
         """Process pygame events. Returns False when the app should quit."""

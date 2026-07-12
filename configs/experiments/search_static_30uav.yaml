@@ -1,0 +1,90 @@
+# Search experiment: 30 UAVs, static environment
+
+environment:
+  width: 100.0
+  height: 100.0
+  obstacle_count: 20
+  obstacle_min_radius: 1.5
+  obstacle_max_radius: 4.0
+  obstacle_seed: 42
+
+uav:
+  max_speed: 1.5
+  max_angular_velocity: 0.9
+  sensing_range: 4.5
+  initial_spread_radius: 25.0
+  spawn_mode: ring
+  spawn_angular_noise: 0.15
+
+aggregation:
+  d_c: 0.5
+  d_0: 12.0
+  k_a: 1.0
+  turn_cost_weight: 1.0
+  trail_penalty: 8.0
+  cluster_penalty_weight: 1.0
+  turn_penalty_weight: 0.5
+  trail_penalty_weight: 1.0
+  candidates_per_frontier: 6
+  mission_region_radius: 4.5
+  replan_interval: 2.0
+
+simulation:
+  num_uavs: 30
+  dt: 0.1
+  duration: 300.0
+  spawn_center_x: 50.0
+  spawn_center_y: 50.0
+  animation_interval_ms: 50
+
+search:
+  enabled: true
+  targets:
+    count_static: 5
+    count_dynamic: 0
+    count_time_varying: 0
+    spawn_margin: 5.0
+    min_separation: 8.0
+    dynamic_speed_min: 0.3
+    dynamic_speed_max: 0.8
+    seed: 100
+  detection:
+    detection_radius: 0.0
+    base_confidence: 0.85
+    confidence_decay_rate: 0.05
+    confidence_merge_alpha: 0.6
+    dedup_time_window_s: 2.0
+    min_detection_confidence: 0.3
+  priority:
+    w_type: 0.30
+    w_confidence: 0.20
+    w_movement: 0.15
+    w_distance: 0.15
+    w_urgency: 0.10
+    w_freshness: 0.10
+  behaviour:
+    direct_nav_staleness_s: 5.0
+    spiral_initial_radius: 3.0
+    spiral_step: 2.5
+    spiral_max_radius: 20.0
+    expanding_step_m: 4.0
+    expanding_max_radius: 25.0
+    replan_interval_s: 1.5
+    arrival_threshold_m: 1.0
+    loss_timeout_s: 8.0
+    max_recovery_attempts: 5
+  assignment:
+    max_targets_per_uav: 2
+    reassignment_on_fail: true
+    fail_timeout_s: 15.0
+    cost_distance_weight: 0.6
+    cost_priority_weight: 0.4
+  tracking:
+    required_tracking_duration_s: 10.0
+    history_max_length: 200
+    reacquisition_search_radius: 12.0
+    visibility_sample_interval_s: 1.0
+  mission:
+    exploration_completion_threshold: 0.85
+    search_timeout_s: 300.0
+    min_coverage_before_search: 0.70
