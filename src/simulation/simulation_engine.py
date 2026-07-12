@@ -94,8 +94,31 @@ class SimulationEngine:
         return int(self.config.duration / self.config.dt)
 
     def step(self) -> SimulationMetrics:
-        """Execute one simulation timestep."""
+        """
+        Execute one simulation timestep.
+
+        Step order (SDS §29)
+        --------------------
+        1. Obstacle Update   — advance all dynamic obstacles (if enabled).
+        2. Aggregation       — BSA viewpoint selection per UAV.
+        3. UAV Update        — kinematic motion toward assigned target.
+        4. Collision Resolution — push UAVs out of static obstacles.
+        5. Boundary Clamp    — keep UAVs inside world bounds.
+        6. Map Update        — mark explored cells.
+        7. Metrics           — collect and record.
+        """
         dt = self.config.dt
+<<<<<<< HEAD
+=======
+
+        # 1. Obstacle Update — must run before aggregation so UAVs react to
+        #    the latest obstacle state (SDS §29).
+        if self.world.obstacle_manager is not None:
+            self.world.obstacle_manager.update(dt)
+
+        # 2. Aggregation
+        self.aggregation.begin_step()
+>>>>>>> origin/feature/dynamic-environment
 
         # Determine current mission phase
         is_searching = (
@@ -107,6 +130,7 @@ class SimulationEngine:
             and self.mission_orchestrator.phase.name == "SEARCH_TRANSITION"
         )
 
+<<<<<<< HEAD
         if not is_searching and not is_transitioning:
             # ── EXPLORATION PHASE ── BSA is active
             self.aggregation.begin_step()
@@ -114,6 +138,9 @@ class SimulationEngine:
                 self.aggregation.update(agent, self.agents, self.world, dt)
 
         # Kinematics always advance
+=======
+        # 3–6. UAV kinematics, collision resolution, map update
+>>>>>>> origin/feature/dynamic-environment
         for agent in self.agents:
             agent.update(dt)
             agent.position = self.world.resolve_collisions(agent.position)
@@ -123,11 +150,15 @@ class SimulationEngine:
                 self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
             self.agent_histories[agent.agent_id].append(agent.position.copy())
 
+<<<<<<< HEAD
         # Also mark explored during transition (UAVs still cover ground)
         if is_transitioning:
             for agent in self.agents:
                 self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
 
+=======
+        # 7. Metrics
+>>>>>>> origin/feature/dynamic-environment
         self.timestep += 1
         self.time_s += dt
 

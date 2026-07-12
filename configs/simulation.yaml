@@ -1,6 +1,50 @@
 # Paper 1 (DEBS) — self-aggregation exploration simulation
 # Layer 2/3 settings are intentionally absent in this iteration.
 
+# ---------------------------------------------------------------------------
+# Dynamic Environment Extension (SDS §27)
+# Set enabled: true to activate moving obstacles.
+# When enabled: false the simulator is identical to the original repository.
+# ---------------------------------------------------------------------------
+dynamic_environment:
+  enabled: true
+
+  # Scenario tag — controls automatic speed assignment (SDS §35).
+  # Values:
+  #   static      — no dynamic obstacles even when enabled: true
+  #   slow        — all obstacles slower than UAV  (0.4–0.7 m/s at v_uav=1.5)
+  #   equal_speed — all obstacles match UAV speed  (1.4–1.6 m/s at v_uav=1.5)
+  #   fast        — all obstacles faster than UAV  (1.8–2.3 m/s at v_uav=1.5)
+  #   mixed       — balanced mixture of slow / equal / fast per motion model
+  #   custom      — uses the explicit linear/waypoint/random_walk speed values below
+  scenario: mixed
+
+  # Number of dynamic obstacles to spawn.
+  obstacle_count: 12
+
+  # Collision detection thresholds [m] (SDS §33).
+  collision_radius: 0.35
+  safety_margin: 0.75
+
+  # RNG seed for reproducible dynamic obstacle placement and motion.
+  random_seed: 42
+
+  # --- Per-model motion parameters (active when scenario: custom) ---
+  # These values are also used when no scenario-driven speed table applies.
+  # For static/slow/equal_speed/fast/mixed the speeds are derived automatically
+  # from the scenario definition relative to uav.max_speed.
+
+  linear:
+    # Constant speed [m/s].  UAV max speed = 1.5 m/s.
+    speed: 0.5
+
+  waypoint:
+    speed: 1.0
+
+  random_walk:
+    speed: 0.8
+    turn_noise: 0.15
+
 environment:
   width: 100.0
   height: 100.0
