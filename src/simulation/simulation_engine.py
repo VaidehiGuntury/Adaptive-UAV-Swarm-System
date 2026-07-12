@@ -27,6 +27,7 @@ from src.environment.world import World
 from src.evaluation.exploration_metrics import (
     frontier_reuse_frequency,
     mean_target_separation,
+    mission_overlap_fraction,
     revisit_ratio,
 )
 
@@ -44,6 +45,7 @@ class SimulationMetrics:
     mean_speed: float
     mean_pairwise_distance: float
     mean_target_separation: float
+    mission_overlap_fraction: float
     frontier_reuse_frequency: float
     target_reassignment_count: int
     revisit_ratio: float
@@ -263,6 +265,9 @@ class SimulationEngine:
             mean_speed=mean_speed,
             mean_pairwise_distance=mean_pairwise,
             mean_target_separation=mean_target_separation(self.agents),
+            mission_overlap_fraction=mission_overlap_fraction(
+                self.agents, self._mission_radius
+            ),
             frontier_reuse_frequency=frontier_reuse_frequency(
                 self.aggregation.replan_region_history
             ),

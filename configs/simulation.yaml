@@ -65,7 +65,9 @@ uav:
 aggregation:
   # Paper 1 Eq. (7) utility U_a distance thresholds
   d_c: 0.5
-  d_0: 12.0
+  d_0: 17.8   # matches mission_region_radius so BSA attraction (Eq. 7) reaches
+              # the full extent of a UAV's own fair-share disk, not just its
+              # inner 12.0m (was smaller than the region it's meant to cover)
   k_a: 1.0
   turn_cost_weight: 1.0
   # Eq. (10) trail penalty — raised after geographic trail fix (see docs/assumptions.md)
@@ -154,6 +156,6 @@ search:
     reacquisition_search_radius: 12.0
     visibility_sample_interval_s: 1.0
   mission:
-    exploration_completion_threshold: 0.25
+    exploration_completion_threshold: 0.85
     search_timeout_s: 300.0
-    min_coverage_before_search: 0.20
+    min_coverage_before_search: 0.70

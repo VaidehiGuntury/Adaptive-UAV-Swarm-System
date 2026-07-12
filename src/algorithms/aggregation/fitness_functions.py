@@ -105,7 +105,7 @@ def aggregation_utility_j_c(
         other_allocated = allocation_center(other)
         if other_allocated is not None:
             utility -= utility_u_a(vp_c, other_allocated, config, lambda_beta)
-        utility += utility_u_a(vp_c, other.position, config, lambda_beta)
+        utility -= utility_u_a(vp_c, other.position, config, lambda_beta)
 
     return float(utility)
 

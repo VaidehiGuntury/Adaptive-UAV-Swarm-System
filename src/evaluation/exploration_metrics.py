@@ -38,6 +38,32 @@ def mean_target_separation(agents: list[UAV]) -> float:
     return float(np.mean(distances))
 
 
+def mission_overlap_fraction(agents: list[UAV], mission_radius: float) -> float:
+    """
+    Fraction of UAV pairs whose mission-region disks overlap.
+
+    Paper 1 §4.1: "The primary objective of task allocation is to ensure
+    mutually exclusive mission regions among all UAVs." Two disks of the
+    configured ``mission_radius`` overlap iff their centre separation is
+    less than ``2 * mission_radius``. Returns 0.0 when fewer than two
+    agents have an assigned region.
+    """
+    centers = [allocated_center(agent) for agent in agents]
+    centers = [c for c in centers if c is not None]
+    if len(centers) < 2:
+        return 0.0
+
+    total = 0
+    overlapping = 0
+    threshold = 2.0 * mission_radius
+    for i in range(len(centers)):
+        for j in range(i + 1, len(centers)):
+            total += 1
+            if float(np.linalg.norm(centers[i] - centers[j])) < threshold:
+                overlapping += 1
+    return float(overlapping / total) if total else 0.0
+
+
 def frontier_reuse_frequency(region_keys: list[RegionKey]) -> float:
     """
     Cumulative fraction of frontier replans that re-selected a prior region.
