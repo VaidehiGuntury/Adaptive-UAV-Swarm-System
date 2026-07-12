@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import yaml
 
@@ -49,7 +49,7 @@ class AggregationConfig:
     """
     Bio-inspired self-aggregation (BSA) parameters.
 
-    Maps to Paper 1 Eqs. (6)–(10): utility U_a, costs J_C, J_V, J_L.
+    Maps to Paper 1 Eqs. (6)-(10): utility U_a, costs J_C, J_V, J_L.
     """
 
     d_c: float
@@ -67,21 +67,21 @@ class AggregationConfig:
 
 @dataclass(frozen=True)
 class LinearMotionConfig:
-    """Parameters for the constant-velocity obstacle motion model (SDS §24)."""
+    """Parameters for the constant-velocity obstacle motion model."""
 
     speed: float
 
 
 @dataclass(frozen=True)
 class WaypointMotionConfig:
-    """Parameters for the waypoint-following obstacle motion model (SDS §24)."""
+    """Parameters for the waypoint-following obstacle motion model."""
 
     speed: float
 
 
 @dataclass(frozen=True)
 class RandomWalkMotionConfig:
-    """Parameters for the random-walk obstacle motion model (SDS §24)."""
+    """Parameters for the random-walk obstacle motion model."""
 
     speed: float
     turn_noise: float
@@ -90,34 +90,11 @@ class RandomWalkMotionConfig:
 @dataclass(frozen=True)
 class DynamicEnvironmentConfig:
     """
-    Configuration for the Dynamic Environment Extension (SDS §26–27).
+    Configuration for the Dynamic Environment Extension.
 
-    When ``enabled`` is False the simulator behaves exactly like the
+    When enabled is False the simulator behaves exactly like the
     original repository — no ObstacleManager is created, no dynamic
     obstacles are spawned, and no dynamic metrics are collected.
-
-    Attributes
-    ----------
-    enabled : bool
-        Master switch.  False ⟹ static environment (default).
-    scenario : str
-        Experiment scenario tag: ``static`` | ``slow`` | ``equal_speed``
-        | ``fast`` | ``mixed``.  Used for labelling only.
-    obstacle_count : int
-        Number of dynamic obstacles to spawn.
-    collision_radius : float
-        Surface-distance threshold for collision detection [m] (SDS §33).
-    safety_margin : float
-        Surface-distance threshold for near-miss detection [m] (SDS §33).
-        Must be >= collision_radius.
-    random_seed : int | None
-        RNG seed for reproducible obstacle placement and motion.
-    linear : LinearMotionConfig
-        Parameters for LinearObstacle instances.
-    waypoint : WaypointMotionConfig
-        Parameters for WaypointObstacle instances.
-    random_walk : RandomWalkMotionConfig
-        Parameters for RandomWalkObstacle instances.
     """
 
     enabled: bool
@@ -129,6 +106,67 @@ class DynamicEnvironmentConfig:
     linear: LinearMotionConfig
     waypoint: WaypointMotionConfig
     random_walk: RandomWalkMotionConfig
+
+
+@dataclass(frozen=True)
+class IDEConfig:
+    """Configuration for the IDE (Iterative Differential Evolution) allocator.
+
+    Implements the parameters used in DEBS Paper 1 §4 (Algorithm 1 & 2).
+    All values are supplied from the ide: block of simulation.yaml;
+    the block is entirely optional — when absent the allocator is disabled.
+
+    Attributes
+    ----------
+    alpha:
+        Controls the balance between exploration (high F) and exploitation
+        (high CR). Used in Eq. 2 and Eq. 3 of DEBS §4. Must be in [0, 1].
+    population_size:
+        Number of candidate positions in the DE population (N in the
+        paper). Must be >= 4 so that x_best, x_i, x_r1, x_r2 can always
+        be chosen as distinct individuals.
+    fe_max:
+        Maximum number of objective-function evaluations per pair
+        interaction (FE_max in Algorithm 1). Set to 0 to disable
+        optimisation and return the LHS initialisation directly.
+    t_att:
+        Minimum elapsed-time (seconds) between two successive interactions
+        of the same UAV pair (Algorithm 2, step 3).
+    d_star:
+        Target pairwise separation distance (metres). The objective Eq. 1
+        reaches its minimum (0) when ||p_i - p_j|| == d_star.
+    communication_range:
+        Maximum distance (metres) within which two UAVs may interact.
+        0.0 means unlimited. Paper value: 50.0m.
+    bounds_padding:
+        Local LHS sampling step size Qs (metres). Paper value: 0.5m.
+        LHS samples within [centre - Qs, centre + Qs] per dimension.
+    seed:
+        RNG seed for reproducibility. None means non-deterministic.
+    """
+
+    alpha: float = 0.5
+    population_size: int = 20
+    fe_max: int = 200
+    t_att: float = 2.0
+    d_star: float = 30.0
+    communication_range: float = 50.0
+    bounds_padding: float = 0.5
+    seed: Optional[int] = 42
+
+    def __post_init__(self) -> None:
+        if self.population_size < 4:
+            raise ValueError(
+                "IDEConfig: population_size must be >= 4 "
+                "(mutation requires x_best, x_i, x_r1, x_r2 "
+                "as distinct individuals)"
+            )
+        if not (0.0 <= self.alpha <= 1.0):
+            raise ValueError("IDEConfig: alpha must be in [0, 1]")
+        if self.fe_max < 0:
+            raise ValueError("IDEConfig: fe_max must be >= 0")
+        if self.d_star <= 0.0:
+            raise ValueError("IDEConfig: d_star must be > 0")
 
 
 @dataclass(frozen=True)
@@ -144,11 +182,28 @@ class SimulationConfig:
     spawn_center_x: float
     spawn_center_y: float
     animation_interval_ms: int
-<<<<<<< HEAD
-    search: SearchConfig | None = None  # None = search extension disabled
-=======
-    dynamic_environment: DynamicEnvironmentConfig | None = None
->>>>>>> origin/feature/dynamic-environment
+
+    # Optional IDE allocator configuration (DEBS §4).
+    # None disables the allocator; existing simulations without an
+    # ide: YAML block remain fully valid.
+    ide: Optional[IDEConfig] = None
+
+    # Optional search & tracking extension (Person 2).
+    # None disables search extension.
+    search: Optional[SearchConfig] = None
+
+    # Optional dynamic environment extension (Person 1).
+    # None disables dynamic obstacles.
+    dynamic_environment: Optional[DynamicEnvironmentConfig] = None
+
+    @property
+    def world_bounds(self) -> tuple[float, float, float, float]:
+        """Return world bounds in the format expected by IDEAllocator.
+
+        Returns (min_x, max_x, min_y, max_y) where the origin is
+        (0, 0) and the arena spans environment.width x environment.height metres.
+        """
+        return (0.0, self.environment.width, 0.0, self.environment.height)
 
 
 def _require(mapping: dict[str, Any], key: str) -> Any:
@@ -160,21 +215,7 @@ def _require(mapping: dict[str, Any], key: str) -> Any:
 def _load_dynamic_environment_config(
     raw_dyn: dict[str, Any],
 ) -> DynamicEnvironmentConfig:
-    """
-    Parse the ``dynamic_environment`` YAML section into a typed config object.
-
-    All sub-sections (``linear``, ``waypoint``, ``random_walk``) are optional
-    and fall back to the SDS §27 defaults when absent.
-
-    Parameters
-    ----------
-    raw_dyn:
-        The raw ``dynamic_environment`` mapping from the YAML file.
-
-    Returns
-    -------
-    DynamicEnvironmentConfig
-    """
+    """Parse the dynamic_environment YAML section into a typed config object."""
     lin_raw: dict[str, Any] = raw_dyn.get("linear", {})
     wp_raw: dict[str, Any] = raw_dyn.get("waypoint", {})
     rw_raw: dict[str, Any] = raw_dyn.get("random_walk", {})
@@ -210,9 +251,24 @@ def load_config(path: str | Path) -> SimulationConfig:
     agg = _require(raw, "aggregation")
     sim = _require(raw, "simulation")
 
-    # ``dynamic_environment`` is optional — absent ⟹ None ⟹ static mode.
+    # Parse optional IDE block (DEBS §4) --------------------------------
+    ide_config: Optional[IDEConfig] = None
+    if "ide" in raw:
+        ide = raw["ide"]
+        ide_config = IDEConfig(
+            alpha=float(ide.get("alpha", 0.5)),
+            population_size=int(ide.get("population_size", 20)),
+            fe_max=int(ide.get("fe_max", 200)),
+            t_att=float(ide.get("t_att", 2.0)),
+            d_star=float(ide.get("d_star", 30.0)),
+            communication_range=float(ide.get("communication_range", 50.0)),
+            bounds_padding=float(ide.get("bounds_padding", 0.5)),
+            seed=ide.get("seed", 42),
+        )
+
+    # Parse optional dynamic_environment block (Person 1) ----------------
     raw_dyn: dict[str, Any] | None = raw.get("dynamic_environment")
-    dyn_config: DynamicEnvironmentConfig | None = (
+    dyn_config: Optional[DynamicEnvironmentConfig] = (
         _load_dynamic_environment_config(raw_dyn) if raw_dyn is not None else None
     )
 
@@ -252,8 +308,9 @@ def load_config(path: str | Path) -> SimulationConfig:
         spawn_center_x=float(_require(sim, "spawn_center_x")),
         spawn_center_y=float(_require(sim, "spawn_center_y")),
         animation_interval_ms=int(_require(sim, "animation_interval_ms")),
-<<<<<<< HEAD
+        ide=ide_config,
         search=_load_search_config(raw.get("search")),
+        dynamic_environment=dyn_config,
     )
 
 
@@ -347,7 +404,4 @@ def _load_search_config(raw_search: dict[str, Any] | None) -> SearchConfig | Non
                 mis.get("min_coverage_before_search", 0.70)
             ),
         ),
-=======
-        dynamic_environment=dyn_config,
->>>>>>> origin/feature/dynamic-environment
     )

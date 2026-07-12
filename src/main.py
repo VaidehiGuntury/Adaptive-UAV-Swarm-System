@@ -13,7 +13,8 @@ import argparse
 from pathlib import Path
 
 import numpy as np
-
+import logging
+logging.basicConfig(level=logging.INFO)
 from src.algorithms.aggregation.self_aggregation import SelfAggregationController
 from src.agents.uav import spawn_uavs
 from src.config.loader import load_config

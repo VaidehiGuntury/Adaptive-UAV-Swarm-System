@@ -71,13 +71,14 @@ aggregation:
   # Eq. (10) trail penalty — raised after geographic trail fix (see docs/assumptions.md)
   trail_penalty: 8.0
   # Composite viewpoint cost weights (Sec. 5 — BSA + navigation + penalty)
-  cluster_penalty_weight: 1.0
-  turn_penalty_weight: 0.5
-  trail_penalty_weight: 1.0
   candidates_per_frontier: 6
-  # Mission region radius ≈ max detection range (Paper 1 task allocation model)
-  mission_region_radius: 4.5
   replan_interval: 2.0
+  mission_region_radius: 17.8   # fair-share radius for 10 UAVs on 100x100 map
+                                 # sqrt(10000/10/π) = 17.8m
+  cluster_penalty_weight: 2.0   # increase from 1.0 — J_C needs more influence
+                                 # to compete with frontier utility
+  trail_penalty_weight: 1.0     # unchanged
+  turn_penalty_weight: 0.5      # unchanged
 
 simulation:
   num_uavs: 10
@@ -86,6 +87,22 @@ simulation:
   spawn_center_x: 50.0
   spawn_center_y: 50.0
   animation_interval_ms: 50
+
+# IDE allocation (DEBS §4 — Algorithms 1 & 2)
+# Remove or comment this block to disable IDE entirely.
+ide:
+  alpha: 0.5              # Eq. 2-3 adaptive schedule parameter
+  population_size: 20     # Population N per pairwise interaction
+  fe_max: 200             # Max function evaluations (paper value)
+  t_att: 2.0              # Min inter-interaction gap in seconds
+  d_star: 30.0            # Desired separation (revised from paper's
+                          # 9.0m — see Stage 4 Q6 resolution:
+                          # fair-share radius on 100x100 map = 17.8m,
+                          # d_star = 2 * 17.8 = 35.6m, rounded to 30.0m
+                          # for headroom)
+  communication_range: 50.0   # paper Rcomm = 50m
+  bounds_padding: 0.5     # Qs = 0.5m local LHS step size (paper value)
+  seed: 42                # Fixed seed for reproducibility
 
 # Search & Tracking extension (Layer 3)
 # Remove this section or set enabled: false to run exploration-only.
@@ -137,6 +154,6 @@ search:
     reacquisition_search_radius: 12.0
     visibility_sample_interval_s: 1.0
   mission:
-    exploration_completion_threshold: 0.25   # lowered for 120s demo; use 0.85 for full experiments
+    exploration_completion_threshold: 0.25
     search_timeout_s: 300.0
     min_coverage_before_search: 0.20

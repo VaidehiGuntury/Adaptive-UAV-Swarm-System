@@ -20,6 +20,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from src.algorithms.aggregation.self_aggregation import SelfAggregationController
+from src.algorithms.allocation import IDEAllocator
 from src.agents.uav import UAV
 from src.config.loader import SimulationConfig
 from src.environment.world import World
@@ -86,7 +87,26 @@ class SimulationEngine:
         self.agent_histories: dict[int, list[NDArray[np.float64]]] = {
             agent.agent_id: [agent.position.copy()] for agent in agents
         }
-        # Search extension: populated in build_simulation() when search config present
+
+        # Mission radius read from config once, reused in set_region() calls.
+        self._mission_radius: float = config.aggregation.mission_region_radius
+
+        # IDE allocator (DEBS §4). None when the ide: block is absent from YAML.
+        # When None the simulation is identical to the pre-IDE baseline.
+        if config.ide is not None:
+            self._ide_allocator: IDEAllocator | None = IDEAllocator(
+                config=config.ide,
+                world_bounds=config.world_bounds,
+            )
+        else:
+            self._ide_allocator = None
+
+        # Gate: tracks last simulation time at which IDE allocation ran.
+        # IDE runs once per BSA replan cycle, not every step.
+        self._last_ide_time: float = -float("inf")
+
+        # Search extension: populated in build_simulation() when search
+        # config is present. None means search extension is disabled.
         self.mission_orchestrator: MissionOrchestrator | None = None
 
     @property
@@ -97,28 +117,23 @@ class SimulationEngine:
         """
         Execute one simulation timestep.
 
-        Step order (SDS §29)
-        --------------------
-        1. Obstacle Update   — advance all dynamic obstacles (if enabled).
-        2. Aggregation       — BSA viewpoint selection per UAV.
-        3. UAV Update        — kinematic motion toward assigned target.
-        4. Collision Resolution — push UAVs out of static obstacles.
-        5. Boundary Clamp    — keep UAVs inside world bounds.
-        6. Map Update        — mark explored cells.
-        7. Metrics           — collect and record.
+        Step order:
+        1. Obstacle Update   - advance all dynamic obstacles (if enabled).
+        2. IDE Allocation    - update p~* before BSA reads J_C (DEBS §4).
+        3. BSA Aggregation   - viewpoint selection per UAV (exploration only).
+        4. UAV Kinematics    - motion toward assigned target.
+        5. Collision Resolve - push UAVs out of static obstacles.
+        6. Boundary Clamp    - keep UAVs inside world bounds.
+        7. Map Update        - mark explored cells.
+        8. Mission Phase     - advance search orchestrator if active.
+        9. Metrics           - collect and record.
         """
         dt = self.config.dt
-<<<<<<< HEAD
-=======
 
-        # 1. Obstacle Update — must run before aggregation so UAVs react to
-        #    the latest obstacle state (SDS §29).
+        # 1. Obstacle Update — advance dynamic obstacles before aggregation
+        #    so UAVs react to the latest obstacle state.
         if self.world.obstacle_manager is not None:
             self.world.obstacle_manager.update(dt)
-
-        # 2. Aggregation
-        self.aggregation.begin_step()
->>>>>>> origin/feature/dynamic-environment
 
         # Determine current mission phase
         is_searching = (
@@ -130,42 +145,59 @@ class SimulationEngine:
             and self.mission_orchestrator.phase.name == "SEARCH_TRANSITION"
         )
 
-<<<<<<< HEAD
+        # 2 & 3. IDE + BSA — only during exploration phase.
+        #    IDE updates p~* BEFORE BSA reads J_C (DEBS §4 Algorithm 2).
         if not is_searching and not is_transitioning:
-            # ── EXPLORATION PHASE ── BSA is active
             self.aggregation.begin_step()
+
+            # IDE allocation: runs once per replan cycle, gated by _last_ide_time.
+            if self._ide_allocator is not None:
+                elapsed_since_ide = self.time_s - self._last_ide_time
+                if elapsed_since_ide >= self.config.aggregation.replan_interval:
+                    new_allocations = self._ide_allocator.allocate(
+                        self.agents,
+                        self.time_s,
+                    )
+                    for agent in self.agents:
+                        if agent.agent_id in new_allocations:
+                            agent.set_region(
+                                new_allocations[agent.agent_id],
+                                self._mission_radius,
+                            )
+                    self._last_ide_time = self.time_s
+
+            # BSA aggregation: reads fresh p~* set by IDE above.
             for agent in self.agents:
                 self.aggregation.update(agent, self.agents, self.world, dt)
 
-        # Kinematics always advance
-=======
-        # 3–6. UAV kinematics, collision resolution, map update
->>>>>>> origin/feature/dynamic-environment
+        # 4-6. UAV kinematics, collision resolution, boundary clamp.
         for agent in self.agents:
             agent.update(dt)
             agent.position = self.world.resolve_collisions(agent.position)
             agent.position = self.world.clip_position(agent.position)
+            # 7. Map update — only mark explored during exploration phase.
             if not is_searching and not is_transitioning:
-                # Only mark explored during exploration phase
-                self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
+                self.world.map.mark_explored(
+                    agent.position, self.config.uav.sensing_range
+                )
             self.agent_histories[agent.agent_id].append(agent.position.copy())
 
-<<<<<<< HEAD
-        # Also mark explored during transition (UAVs still cover ground)
+        # Also mark explored during transition (UAVs still cover ground).
         if is_transitioning:
             for agent in self.agents:
-                self.world.map.mark_explored(agent.position, self.config.uav.sensing_range)
+                self.world.map.mark_explored(
+                    agent.position, self.config.uav.sensing_range
+                )
 
-=======
-        # 7. Metrics
->>>>>>> origin/feature/dynamic-environment
         self.timestep += 1
         self.time_s += dt
 
-        # Advance mission orchestrator (handles phase transitions and search logic)
+        # 8. Advance mission orchestrator (handles phase transitions and
+        #    search logic). Must run after kinematics.
         if self.mission_orchestrator is not None:
             self.mission_orchestrator.step(self.time_s, dt)
 
+        # 9. Metrics.
         metrics = self._collect_metrics()
         self.metrics_history.append(metrics)
         return metrics
@@ -179,7 +211,11 @@ class SimulationEngine:
 
     def get_state(self) -> SimulationState:
         """Return current state snapshot for visualization."""
-        latest = self.metrics_history[-1] if self.metrics_history else self._collect_metrics()
+        latest = (
+            self.metrics_history[-1]
+            if self.metrics_history
+            else self._collect_metrics()
+        )
         return SimulationState(
             timestep=self.timestep,
             time_s=self.time_s,
@@ -188,12 +224,14 @@ class SimulationEngine:
         )
 
     def _collect_metrics(self) -> SimulationMetrics:
-        speeds = [float(np.linalg.norm(agent.velocity)) for agent in self.agents]
+        speeds = [
+            float(np.linalg.norm(agent.velocity)) for agent in self.agents
+        ]
         mean_speed = float(np.mean(speeds)) if speeds else 0.0
 
         pairwise: list[float] = []
         for i, agent_i in enumerate(self.agents):
-            for agent_j in self.agents[i + 1 :]:
+            for agent_j in self.agents[i + 1:]:
                 pairwise.append(agent_i.compute_distance(agent_j))
         mean_pairwise = float(np.mean(pairwise)) if pairwise else 0.0
 
