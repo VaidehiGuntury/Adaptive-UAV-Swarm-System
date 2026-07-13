@@ -28,7 +28,6 @@ from src.evaluation.exploration_metrics import (
     frontier_reuse_frequency,
     mean_target_separation,
     mission_overlap_fraction,
-    revisit_ratio,
 )
 
 if TYPE_CHECKING:
@@ -89,6 +88,16 @@ class SimulationEngine:
         self.agent_histories: dict[int, list[NDArray[np.float64]]] = {
             agent.agent_id: [agent.position.copy()] for agent in agents
         }
+        # Incremental mirror of revisit_ratio()'s (total_visits, unique_visits)
+        # state — avoids rescanning the full agent_histories every tick.
+        # Must stay in lockstep with agent_histories: every position appended
+        # there is also folded in here, and nowhere else.
+        self._revisit_total_visits: int = 0
+        self._revisit_unique_cells: set[tuple[int, int, int]] = set()
+        for agent in agents:
+            col, row = self.world.map.world_to_grid(agent.position)
+            self._revisit_total_visits += 1
+            self._revisit_unique_cells.add((agent.agent_id, col, row))
 
         # Mission radius read from config once, reused in set_region() calls.
         self._mission_radius: float = config.aggregation.mission_region_radius
@@ -183,6 +192,9 @@ class SimulationEngine:
                     agent.position, self.config.uav.sensing_range
                 )
             self.agent_histories[agent.agent_id].append(agent.position.copy())
+            col, row = self.world.map.world_to_grid(agent.position)
+            self._revisit_total_visits += 1
+            self._revisit_unique_cells.add((agent.agent_id, col, row))
 
         # Also mark explored during transition (UAVs still cover ground).
         if is_transitioning:
@@ -272,7 +284,12 @@ class SimulationEngine:
                 self.aggregation.replan_region_history
             ),
             target_reassignment_count=self.aggregation.step_reassignment_count,
-            revisit_ratio=revisit_ratio(self.agent_histories, self.world.map),
+            revisit_ratio=(
+                (self._revisit_total_visits - len(self._revisit_unique_cells))
+                / self._revisit_total_visits
+                if self._revisit_total_visits
+                else 0.0
+            ),
             active_frontier_count=len(frontier_clusters),
             mission_phase=phase_name,
             detected_targets=detected,
