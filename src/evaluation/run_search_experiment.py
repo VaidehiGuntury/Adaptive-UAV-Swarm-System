@@ -13,6 +13,7 @@ Usage (from project root):
 from __future__ import annotations
 
 import argparse
+import csv
 import time
 from pathlib import Path
 
@@ -109,10 +110,47 @@ def run_single_experiment(
     progress_interval_s = 20.0
     next_progress_log = progress_interval_s
 
+    # Diagnostic instrumentation: per-UAV position + assigned-target snapshot
+    # every trace_interval_s during SEARCHING, so a detected-vs-missed target
+    # can be checked against actual UAV proximity rather than the (frozen,
+    # post-transition) coverage map. Written incrementally, not buffered.
+    trace_interval_s = 5.0
+    next_trace_log: float | None = None
+    trace_handle = None
+    trace_writer = None
+    agent_trace_fields = ["time_s", "agent_id", "x", "y", "assigned_target_id", "phase"]
+
     # Run simulation tick by tick so we can hook into phase transitions
     while engine.time_s < engine.config.duration:
         m = engine.step()
         phase = orch.phase
+
+        if phase == MissionPhase.SEARCHING:
+            if trace_handle is None:
+                output_dir.mkdir(parents=True, exist_ok=True)
+                trace_handle = (output_dir / f"{label}_agent_trace.csv").open(
+                    "w", newline="", encoding="utf-8"
+                )
+                trace_writer = csv.DictWriter(trace_handle, fieldnames=agent_trace_fields)
+                trace_writer.writeheader()
+                next_trace_log = engine.time_s
+            if next_trace_log is not None and engine.time_s >= next_trace_log:
+                for agent in engine.agents:
+                    astate = getattr(agent, "search_state", None)
+                    trace_writer.writerow(
+                        {
+                            "time_s": round(engine.time_s, 2),
+                            "agent_id": agent.agent_id,
+                            "x": round(float(agent.position[0]), 3),
+                            "y": round(float(agent.position[1]), 3),
+                            "assigned_target_id": (
+                                astate.assigned_target_id if astate is not None else ""
+                            ),
+                            "phase": astate.phase.name if astate is not None else "",
+                        }
+                    )
+                trace_handle.flush()
+                next_trace_log += trace_interval_s
 
         if engine.time_s >= next_progress_log:
             elapsed_wall = time.perf_counter() - t0
@@ -143,6 +181,9 @@ def run_single_experiment(
         # Stop early if mission complete
         if phase == MissionPhase.COMPLETED:
             break
+
+    if trace_handle is not None:
+        trace_handle.close()
 
     # Record final state
     collector.record_mission_end(
