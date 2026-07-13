@@ -59,11 +59,22 @@ class SearchAgentState:
     Search-specific state carried by each UAV.
 
     Attached to UAV.search_state by MissionOrchestrator at phase transition.
+
+    assigned_target_id  : the target currently being actively pursued
+                          (steered toward). None if idle.
+    assigned_target_ids : all targets currently assigned to this UAV,
+                          including assigned_target_id itself, in the
+                          order they were assigned. A UAV can hold up to
+                          config.assignment.max_targets_per_uav of these
+                          at once, but only ever actively pursues one —
+                          see SearchController.assign_target() /
+                          _advance_to_next_target().
     """
 
     agent_id: int
     phase: AgentSearchPhase = AgentSearchPhase.IDLE
     assigned_target_id: int | None = None
+    assigned_target_ids: list[int] = field(default_factory=list)
     current_behaviour: SearchBehaviour = SearchBehaviour.DIRECT_NAV
     time_since_replan: float = 0.0
     waypoint: NDArray[np.float64] | None = None
@@ -110,11 +121,25 @@ class SearchController:
         world: World,
     ) -> None:
         """
-        Assign a search target to an agent and begin navigation.
+        Add a search target to an agent's assignment queue.
 
-        Transitions agent FSM to NAVIGATING_TO_SEARCH.
+        A UAV may hold multiple simultaneous assignments (up to
+        config.assignment.max_targets_per_uav), but only ever actively
+        pursues (steers toward) one at a time. If the agent is not
+        currently TRACKING another assigned target, this target becomes
+        the active one and navigation begins immediately. If the agent
+        IS actively tracking another target, this one is queued —
+        without interrupting the active track — and becomes active only
+        once the current one is dropped (completed or permanently lost;
+        see _advance_to_next_target()).
         """
         state = self._get_state(agent)
+        if target.target_id not in state.assigned_target_ids:
+            state.assigned_target_ids.append(target.target_id)
+
+        if state.phase == AgentSearchPhase.TRACKING:
+            return  # already actively tracking something — don't interrupt it
+
         state.assigned_target_id = target.target_id
         state.phase = AgentSearchPhase.NAVIGATING_TO_SEARCH
         state.time_since_replan = self._cfg.replan_interval_s  # force immediate replan
@@ -180,7 +205,11 @@ class SearchController:
         if tid is not None:
             event = tracker_events.get(tid)
             if event == "completed":
-                state.phase = AgentSearchPhase.COMPLETED
+                # "completed" covers both true completion and permanently-
+                # lost-after-max-recovery-attempts (tracker.py emits the
+                # same event for both) — either way this target is done;
+                # hand off to the next queued assignment, if any.
+                self._advance_to_next_target(state, agent, target_manager, world, tid)
                 return
             elif event == "lost":
                 self._transition_to_searching(state, agent, target, world, lost=True)
@@ -279,6 +308,38 @@ class SearchController:
         if state.assigned_target_id is None:
             return None
         return target_manager.get_target(state.assigned_target_id)
+
+    def _advance_to_next_target(
+        self,
+        state: SearchAgentState,
+        agent: UAV,
+        target_manager: TargetManager,
+        world: World,
+        finished_target_id: int,
+    ) -> None:
+        """
+        Drop a finished (completed or permanently-lost) target from the
+        queue and, if another assigned target is waiting, make it active
+        and begin navigation immediately. Otherwise mark COMPLETED.
+        """
+        if finished_target_id in state.assigned_target_ids:
+            state.assigned_target_ids.remove(finished_target_id)
+
+        if not state.assigned_target_ids:
+            state.phase = AgentSearchPhase.COMPLETED
+            state.assigned_target_id = None
+            return
+
+        next_id = state.assigned_target_ids[0]
+        next_target = target_manager.get_target(next_id)
+        state.assigned_target_id = next_id
+        state.phase = AgentSearchPhase.NAVIGATING_TO_SEARCH
+        state.time_since_replan = self._cfg.replan_interval_s
+        if next_target is not None:
+            state._direct_nav = DirectNavBehaviour(next_target)
+            wp = self._compute_waypoint(state, agent, next_target, world)
+            if wp is not None:
+                agent.set_target(wp)
 
     def _transition_to_searching(
         self,
