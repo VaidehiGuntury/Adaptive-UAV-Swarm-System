@@ -145,13 +145,21 @@ class World:
         return clipped
 
     def resolve_collisions(self, position: np.ndarray, margin: float = 0.3) -> np.ndarray:
-        """Resolve obstacle collisions via projection."""
-        return self.obstacles.nearest_free_point(
+        """Resolve obstacle collisions via projection (static, then dynamic)."""
+        resolved = self.obstacles.nearest_free_point(
             position,
             world_width=self.width,
             world_height=self.height,
             margin=margin,
         )
+        if self.obstacle_manager is not None:
+            resolved = self.obstacle_manager.nearest_free_point(
+                resolved,
+                world_width=self.width,
+                world_height=self.height,
+                margin=margin,
+            )
+        return resolved
 
 
 # ---------------------------------------------------------------------------

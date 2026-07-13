@@ -350,6 +350,54 @@ class ObstacleManager:
         return NearestObstacleResult(obstacle=nearest_obs, distance=nearest_dist)
 
     # ------------------------------------------------------------------
+    # Collision resolution (position correction)
+    # ------------------------------------------------------------------
+
+    def nearest_free_point(
+        self,
+        point: NDArray[np.float64],
+        world_width: float,
+        world_height: float,
+        margin: float = 0.2,
+    ) -> NDArray[np.float64]:
+        """
+        Project point to nearest collision-free location against active
+        dynamic obstacles (mirrors ``ObstacleField.nearest_free_point`` for
+        static obstacles — same push-out-then-clip iteration, same margin
+        semantics, applied to ``DynamicObstacle.position``/``radius``
+        instead of ``CircularObstacle.center``/``radius``).
+
+        Parameters
+        ----------
+        point:
+            2-D query position [m].
+        world_width, world_height:
+            World bounds [m] used to clip the corrected position.
+        margin:
+            Minimum surface clearance to maintain from every obstacle [m].
+
+        Returns
+        -------
+        NDArray[np.float64]
+            Corrected position, clear of all active dynamic obstacles
+            (up to 8 resolution passes) and clipped to world bounds.
+        """
+        adjusted = point.astype(np.float64).copy()
+        for _ in range(8):
+            active = [o for o in self._obstacles.values() if o.active]
+            if not any(o.distance_to(adjusted) <= margin for o in active):
+                break
+            for obstacle in active:
+                delta = adjusted - obstacle.position
+                dist = float(np.linalg.norm(delta))
+                if dist < obstacle.radius + margin:
+                    direction = delta / dist if dist > 1e-9 else np.array([1.0, 0.0])
+                    adjusted = obstacle.position + direction * (obstacle.radius + margin)
+            adjusted[0] = np.clip(adjusted[0], margin, world_width - margin)
+            adjusted[1] = np.clip(adjusted[1], margin, world_height - margin)
+        return adjusted
+
+    # ------------------------------------------------------------------
     # Future position prediction
     # ------------------------------------------------------------------
 
