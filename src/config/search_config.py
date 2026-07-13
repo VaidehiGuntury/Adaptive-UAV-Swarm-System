@@ -15,7 +15,10 @@ class TargetSpawnConfig:
     """
     Parameters controlling target population at mission start.
 
-    count_static       — number of static targets (injured human, kit, building)
+    count_static       — number of static, inanimate targets (kit, building)
+    count_static_human — number of static, injured-human targets (higher
+                         search priority than count_static; see
+                         PriorityConfig.score_static_human)
     count_dynamic      — number of continuously moving targets
     count_time_varying — number of targets that change state during mission
     spawn_margin       — minimum distance from world edge for spawning [m]
@@ -26,6 +29,7 @@ class TargetSpawnConfig:
     """
 
     count_static: int = 3
+    count_static_human: int = 0
     count_dynamic: int = 3
     count_time_varying: int = 2
     spawn_margin: float = 5.0

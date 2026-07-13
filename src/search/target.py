@@ -67,6 +67,10 @@ class Target:
     assigned_uav     : agent_id of assigned UAV (None if unassigned)
     tracking_history : ordered list of (time_s, position) observation tuples
     is_moving        : True if target currently has non-zero velocity
+    is_human         : for STATIC targets, distinguishes an injured-human
+                       target (score_static_human) from an inanimate object
+                       (score_static_object) in priority scoring. Unused
+                       for DYNAMIC/TIME_VARYING targets.
     state_schedule   : for TIME_VARYING: list of (time_s, new_velocity) events
     """
 
@@ -88,6 +92,7 @@ class Target:
         default_factory=list
     )
     is_moving: bool = False
+    is_human: bool = False
     # TIME_VARYING schedule: list of (trigger_time_s, new_velocity_array)
     state_schedule: list[tuple[float, NDArray[np.float64]]] = field(
         default_factory=list

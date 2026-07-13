@@ -84,6 +84,19 @@ class TargetManager:
             occupied_positions.append(pos)
             spawned.append(target)
 
+        for _ in range(spawn_cfg.count_static_human):
+            pos = self._sample_position(rng, occupied_positions, spawn_cfg)
+            target = self._make_target(
+                target_type=TargetType.STATIC,
+                position=pos,
+                velocity=np.zeros(2, dtype=np.float64),
+                creation_time=current_time,
+                is_human=True,
+            )
+            self._targets[target.target_id] = target
+            occupied_positions.append(pos)
+            spawned.append(target)
+
         for _ in range(spawn_cfg.count_dynamic):
             pos = self._sample_position(rng, occupied_positions, spawn_cfg)
             speed = float(rng.uniform(spawn_cfg.dynamic_speed_min, spawn_cfg.dynamic_speed_max))
@@ -327,6 +340,7 @@ class TargetManager:
         velocity: NDArray[np.float64],
         creation_time: float,
         state_schedule: list[tuple[float, NDArray[np.float64]]] | None = None,
+        is_human: bool = False,
     ) -> Target:
         tid = self._next_id
         self._next_id += 1
@@ -337,6 +351,7 @@ class TargetManager:
             velocity=velocity.copy(),
             creation_time=creation_time,
             state_schedule=list(state_schedule or []),
+            is_human=is_human,
         )
 
     def _sample_position(

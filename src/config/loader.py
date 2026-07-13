@@ -336,6 +336,7 @@ def _load_search_config(raw_search: dict[str, Any] | None) -> SearchConfig | Non
         enabled=bool(raw_search.get("enabled", True)),
         targets=TargetSpawnConfig(
             count_static=int(ts.get("count_static", 3)),
+            count_static_human=int(ts.get("count_static_human", 0)),
             count_dynamic=int(ts.get("count_dynamic", 3)),
             count_time_varying=int(ts.get("count_time_varying", 2)),
             spawn_margin=float(ts.get("spawn_margin", 5.0)),

@@ -137,4 +137,4 @@ class PriorityScorer:
                 return cfg.score_moving_vehicle
             return cfg.score_static_human
         else:  # STATIC
-            return cfg.score_static_object
+            return cfg.score_static_human if target.is_human else cfg.score_static_object
