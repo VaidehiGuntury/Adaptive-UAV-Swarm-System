@@ -106,10 +106,27 @@ def run_single_experiment(
     collector = SearchMetricsCollector(num_uavs=num_uavs, environment_type=env_type)
     search_started = False
 
+    progress_interval_s = 20.0
+    next_progress_log = progress_interval_s
+
     # Run simulation tick by tick so we can hook into phase transitions
     while engine.time_s < engine.config.duration:
-        engine.step()
+        m = engine.step()
         phase = orch.phase
+
+        if engine.time_s >= next_progress_log:
+            elapsed_wall = time.perf_counter() - t0
+            eta_s = (
+                elapsed_wall * (engine.config.duration - engine.time_s) / engine.time_s
+                if engine.time_s > 0
+                else float("nan")
+            )
+            print(
+                f"[{label}] t={engine.time_s:6.1f}s / {engine.config.duration:.0f}s  "
+                f"coverage={m.explored_fraction*100:5.1f}%  phase={phase.name:<17} "
+                f"wall={elapsed_wall:6.1f}s  ETA={eta_s:6.1f}s"
+            )
+            next_progress_log += progress_interval_s
 
         # Record search-phase start
         if phase == MissionPhase.SEARCHING and not search_started:

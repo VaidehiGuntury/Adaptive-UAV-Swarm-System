@@ -1,0 +1,179 @@
+# Search-phase reachability validation — derived from configs/simulation.yaml
+# (the base config behind the Task 0 120s benchmark / task0_n10/n20/n30.csv).
+#
+# Purpose: confirm whether/when the SEARCH phase is actually reachable and
+# behaves correctly, in isolation from the separate (still-deferred) dynamic
+# obstacle validation gap. Two decisions made explicitly for this run:
+#   - dynamic_environment.enabled: false — obstacles isolated OUT of this
+#     test; obstacle validation stays a separate open gap
+#     (see docs/dynamic_obstacles_revalidation.md).
+#   - simulation.num_uavs: 10 — small fleet, to keep the known unresolved
+#     30-UAV regression (commit 9879a12) from confounding this result.
+#
+# Only two values changed vs. configs/simulation.yaml: dynamic_environment.
+# enabled (true -> false) and simulation.duration (120.0 -> 420.0). 420s was
+# chosen over the initially-proposed 330s after a closer look at Task 0's
+# coverage curve showed bursty, non-monotonic growth (a 40-70s near-stall
+# followed by a sharp burst at 70-90s) rather than smooth deceleration —
+# 330s sat too close to the conservative-case estimate (~325s) to be a real
+# safety margin, and a recurrence of that kind of stall could have pushed
+# the actual time-to-threshold past 350s. Nothing else touched.
+
+# ---------------------------------------------------------------------------
+# Dynamic Environment Extension (SDS §27)
+# Set enabled: true to activate moving obstacles.
+# When enabled: false the simulator is identical to the original repository.
+# ---------------------------------------------------------------------------
+dynamic_environment:
+  enabled: false
+
+  # Scenario tag — controls automatic speed assignment (SDS §35).
+  # Values:
+  #   static      — no dynamic obstacles even when enabled: true
+  #   slow        — all obstacles slower than UAV  (0.4–0.7 m/s at v_uav=1.5)
+  #   equal_speed — all obstacles match UAV speed  (1.4–1.6 m/s at v_uav=1.5)
+  #   fast        — all obstacles faster than UAV  (1.8–2.3 m/s at v_uav=1.5)
+  #   mixed       — balanced mixture of slow / equal / fast per motion model
+  #   custom      — uses the explicit linear/waypoint/random_walk speed values below
+  scenario: mixed
+
+  # Number of dynamic obstacles to spawn.
+  obstacle_count: 12
+
+  # Collision detection thresholds [m] (SDS §33).
+  collision_radius: 0.35
+  safety_margin: 0.75
+
+  # RNG seed for reproducible dynamic obstacle placement and motion.
+  random_seed: 42
+
+  # --- Per-model motion parameters (active when scenario: custom) ---
+  # These values are also used when no scenario-driven speed table applies.
+  # For static/slow/equal_speed/fast/mixed the speeds are derived automatically
+  # from the scenario definition relative to uav.max_speed.
+
+  linear:
+    # Constant speed [m/s].  UAV max speed = 1.5 m/s.
+    speed: 0.5
+
+  waypoint:
+    speed: 1.0
+
+  random_walk:
+    speed: 0.8
+    turn_noise: 0.15
+
+environment:
+  width: 100.0
+  height: 100.0
+  obstacle_count: 20
+  obstacle_min_radius: 1.5
+  obstacle_max_radius: 4.0
+  obstacle_seed: 42
+
+uav:
+  # Paper 1 dynamics (Sec. 2.3, experiments)
+  max_speed: 1.5
+  max_angular_velocity: 0.9
+  sensing_range: 4.5
+  initial_spread_radius: 20.0
+  spawn_mode: ring
+  spawn_angular_noise: 0.15
+
+aggregation:
+  # Paper 1 Eq. (7) utility U_a distance thresholds
+  d_c: 0.5
+  d_0: 17.8   # matches mission_region_radius so BSA attraction (Eq. 7) reaches
+              # the full extent of a UAV's own fair-share disk, not just its
+              # inner 12.0m (was smaller than the region it's meant to cover)
+  k_a: 1.0
+  turn_cost_weight: 1.0
+  # Eq. (10) trail penalty — raised after geographic trail fix (see docs/assumptions.md)
+  trail_penalty: 8.0
+  # Composite viewpoint cost weights (Sec. 5 — BSA + navigation + penalty)
+  candidates_per_frontier: 6
+  replan_interval: 2.0
+  mission_region_radius: 17.8   # fair-share radius for 10 UAVs on 100x100 map
+                                 # sqrt(10000/10/π) = 17.8m
+  cluster_penalty_weight: 2.0   # increase from 1.0 — J_C needs more influence
+                                 # to compete with frontier utility
+  trail_penalty_weight: 1.0     # unchanged
+  turn_penalty_weight: 0.5      # unchanged
+
+simulation:
+  num_uavs: 10
+  dt: 0.1
+  duration: 420.0
+  spawn_center_x: 50.0
+  spawn_center_y: 50.0
+  animation_interval_ms: 50
+
+# IDE allocation (DEBS §4 — Algorithms 1 & 2)
+# Remove or comment this block to disable IDE entirely.
+ide:
+  alpha: 0.5              # Eq. 2-3 adaptive schedule parameter
+  population_size: 20     # Population N per pairwise interaction
+  fe_max: 200             # Max function evaluations (paper value)
+  t_att: 2.0              # Min inter-interaction gap in seconds
+  d_star: 30.0            # Desired separation (revised from paper's
+                          # 9.0m — see Stage 4 Q6 resolution:
+                          # fair-share radius on 100x100 map = 17.8m,
+                          # d_star = 2 * 17.8 = 35.6m, rounded to 30.0m
+                          # for headroom)
+  communication_range: 50.0   # paper Rcomm = 50m
+  bounds_padding: 0.5     # Qs = 0.5m local LHS step size (paper value)
+  seed: 42                # Fixed seed for reproducibility
+
+# Search & Tracking extension (Layer 3)
+# Remove this section or set enabled: false to run exploration-only.
+search:
+  enabled: true
+  targets:
+    count_static: 3
+    count_dynamic: 3
+    count_time_varying: 2
+    spawn_margin: 5.0
+    min_separation: 8.0
+    dynamic_speed_min: 0.3
+    dynamic_speed_max: 0.8
+    seed: 123
+  detection:
+    detection_radius: 0.0   # 0.0 → use UAV sensing_range
+    base_confidence: 0.85
+    confidence_decay_rate: 0.05
+    confidence_merge_alpha: 0.6
+    dedup_time_window_s: 2.0
+    min_detection_confidence: 0.3
+  priority:
+    w_type: 0.30
+    w_confidence: 0.20
+    w_movement: 0.15
+    w_distance: 0.15
+    w_urgency: 0.10
+    w_freshness: 0.10
+  behaviour:
+    direct_nav_staleness_s: 5.0
+    spiral_initial_radius: 3.0
+    spiral_step: 2.5
+    spiral_max_radius: 20.0
+    expanding_step_m: 4.0
+    expanding_max_radius: 25.0
+    replan_interval_s: 1.5
+    arrival_threshold_m: 1.0
+    loss_timeout_s: 8.0
+    max_recovery_attempts: 5
+  assignment:
+    max_targets_per_uav: 2
+    reassignment_on_fail: true
+    fail_timeout_s: 15.0
+    cost_distance_weight: 0.6
+    cost_priority_weight: 0.4
+  tracking:
+    required_tracking_duration_s: 10.0
+    history_max_length: 200
+    reacquisition_search_radius: 12.0
+    visibility_sample_interval_s: 1.0
+  mission:
+    exploration_completion_threshold: 0.85
+    search_timeout_s: 300.0
+    min_coverage_before_search: 0.70
