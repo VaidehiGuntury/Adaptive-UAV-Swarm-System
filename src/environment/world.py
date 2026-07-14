@@ -45,6 +45,13 @@ _FAST_RANGE = (1.200, 1.533)    # × v_uav → 1.8–2.3 m/s when v_uav = 1.5
 _DYNAMIC_SCENARIOS = frozenset({"slow", "equal_speed", "fast", "mixed", "custom"})
 _STATIC_SCENARIOS = frozenset({"static"})
 
+# Minimum clearance a resolved position must maintain beyond
+# ObstacleManager.collision_radius. If the resolution margin were allowed to
+# be <= collision_radius, a "successfully avoided" position would still fall
+# inside the distance threshold that check_collision classifies as a
+# collision, so every avoidance event would get logged as a collision.
+_DYNAMIC_CLEARANCE_BUFFER = 0.05
+
 
 class World:
     """Top-level environment container."""
@@ -153,11 +160,19 @@ class World:
             margin=margin,
         )
         if self.obstacle_manager is not None:
+            # Must clear collision_radius, not just graze it — floor derived
+            # live from the manager so it tracks whatever collision_radius is
+            # configured to, instead of drifting out of sync like a second
+            # hardcoded constant would.
+            dynamic_margin = max(
+                margin,
+                self.obstacle_manager.collision_radius + _DYNAMIC_CLEARANCE_BUFFER,
+            )
             resolved = self.obstacle_manager.nearest_free_point(
                 resolved,
                 world_width=self.width,
                 world_height=self.height,
-                margin=margin,
+                margin=dynamic_margin,
             )
         return resolved
 
