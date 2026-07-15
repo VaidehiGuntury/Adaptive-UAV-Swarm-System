@@ -96,7 +96,7 @@ def build_engine(config: SimulationConfig, allocator_kind: AllocatorKind) -> Sim
     comparison only (matches Phase E's scope), mirroring
     run_multiseed.py's build_engine().
     """
-    world = World.from_config(config.environment, config.uav)
+    world = World.from_config(config.environment, config.uav, dynamic_config=config.dynamic_environment)
     spawn_center = np.array(
         [config.spawn_center_x, config.spawn_center_y], dtype=np.float64
     )
