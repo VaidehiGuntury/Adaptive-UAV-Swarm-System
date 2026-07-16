@@ -92,6 +92,9 @@ class MissionOrchestrator:
             config=config.behaviour,
             tracker=self.tracker,
             rng=self._rng,
+            world_width=world.width,
+            world_height=world.height,
+            num_uavs=len(agents),
         )
 
         # Attach target_manager to world so renderers can access it

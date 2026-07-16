@@ -22,6 +22,7 @@ SEARCHING → COMPLETED        : max recovery attempts exceeded
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -69,6 +70,11 @@ class SearchAgentState:
                           at once, but only ever actively pursues one —
                           see SearchController.assign_target() /
                           _advance_to_next_target().
+    idle_waypoint_index  : index into this agent's fixed sector lawnmower
+                          waypoint list (SearchController._sector_waypoints),
+                          advanced each time a new IDLE waypoint is issued;
+                          wraps around (see SearchController._next_idle_waypoint())
+                          once the sector has been fully swept.
     """
 
     agent_id: int
@@ -79,12 +85,84 @@ class SearchAgentState:
     time_since_replan: float = 0.0
     waypoint: NDArray[np.float64] | None = None
     recovery_attempts: int = 0
+    idle_waypoint_index: int = 0
 
     # Behaviour instances (created lazily)
     _direct_nav: DirectNavBehaviour | None = field(default=None, repr=False)
     _spiral: SpiralSearchBehaviour | None = field(default=None, repr=False)
     _expanding: ExpandingSearchBehaviour | None = field(default=None, repr=False)
     _recovery: RecoverySearchBehaviour | None = field(default=None, repr=False)
+
+
+def _grid_factorization(n: int) -> tuple[int, int]:
+    """
+    Return (rows, cols) with rows*cols == n, as close to square as possible
+    (rows <= cols). Falls back to a 1xN strip for prime n — an inherent
+    consequence of requiring an exact factorization, not a special case.
+    """
+    n = max(1, n)
+    for i in range(math.isqrt(n), 0, -1):
+        if n % i == 0:
+            return i, n // i
+    return 1, n  # unreachable (i=1 always divides n), kept for clarity
+
+
+def _compute_sector_bounds(
+    num_sectors: int,
+    world_width: float,
+    world_height: float,
+) -> list[tuple[float, float, float, float]]:
+    """
+    Partition the world into ``num_sectors`` equal rectangular sectors on a
+    grid as close to square as possible. Returns one (xmin, xmax, ymin, ymax)
+    tuple per sector, in row-major order (sector index = row*cols + col).
+    """
+    rows, cols = _grid_factorization(num_sectors)
+    sector_w = world_width / cols
+    sector_h = world_height / rows
+    bounds: list[tuple[float, float, float, float]] = []
+    for s in range(num_sectors):
+        row, col = divmod(s, cols)
+        xmin = col * sector_w
+        ymin = row * sector_h
+        bounds.append((xmin, xmin + sector_w, ymin, ymin + sector_h))
+    return bounds
+
+
+def _generate_lawnmower_waypoints(
+    bounds: tuple[float, float, float, float],
+    row_spacing: float,
+) -> list[NDArray[np.float64]]:
+    """
+    Boustrophedon (back-and-forth) waypoint list covering a rectangular
+    sector. Only row endpoints are needed — straight-line travel between
+    consecutive waypoints sweeps the full row width, so no intermediate
+    points are required within a row. Always returns at least one waypoint,
+    even for a sector smaller than one row_spacing.
+    """
+    xmin, xmax, ymin, ymax = bounds
+    half = row_spacing / 2.0
+    x_left = min(xmin + half, (xmin + xmax) / 2.0)
+    x_right = max(xmax - half, (xmin + xmax) / 2.0)
+
+    row_ys: list[float] = []
+    y = ymin + half
+    y_limit = ymax - half
+    if y_limit >= ymin + half:
+        while y <= y_limit:
+            row_ys.append(y)
+            y += row_spacing
+    if not row_ys:
+        row_ys = [(ymin + ymax) / 2.0]
+
+    waypoints: list[NDArray[np.float64]] = []
+    left_to_right = True
+    for row_y in row_ys:
+        first, second = (x_left, x_right) if left_to_right else (x_right, x_left)
+        waypoints.append(np.array([first, row_y], dtype=np.float64))
+        waypoints.append(np.array([second, row_y], dtype=np.float64))
+        left_to_right = not left_to_right
+    return waypoints
 
 
 class SearchController:
@@ -98,6 +176,15 @@ class SearchController:
         Shared tracker — receives tracking events from DetectionSystem.
     rng : np.random.Generator
         Shared RNG for behaviour strategies.
+    world_width, world_height : float
+        World bounds, used to partition IDLE sector sweeps. Default to a
+        single 100x100m sector so ``SearchController(config, tracker)``
+        (no world/fleet info) remains valid — used by existing tests that
+        never exercise the IDLE branch.
+    num_uavs : int
+        Fleet size — the world is divided into this many sectors, one per
+        UAV (``agent_id % num_uavs``). Defaults to 1 (whole world, one
+        sector) when unspecified.
     """
 
     def __init__(
@@ -105,10 +192,29 @@ class SearchController:
         config: SearchBehaviourConfig,
         tracker: TargetTracker,
         rng: np.random.Generator | None = None,
+        world_width: float = 100.0,
+        world_height: float = 100.0,
+        num_uavs: int = 1,
     ) -> None:
         self._cfg = config
         self._tracker = tracker
         self._rng = rng or np.random.default_rng()
+
+        # IDLE sector sweep: fixed per-agent sector (agent_id % num_sectors),
+        # precomputed once — no coordination needed between concurrently-IDLE
+        # UAVs (each computes its own path purely from its own agent_id).
+        self._num_sectors = max(1, num_uavs)
+        self._sector_bounds = _compute_sector_bounds(
+            self._num_sectors, world_width, world_height
+        )
+        self._sector_waypoints: list[list[NDArray[np.float64]]] = [
+            _generate_lawnmower_waypoints(b, config.idle_sweep_row_spacing)
+            for b in self._sector_bounds
+        ]
+
+    def sector_bounds_for_agent(self, agent_id: int) -> tuple[float, float, float, float]:
+        """(xmin, xmax, ymin, ymax) of the fixed IDLE sweep sector owned by agent_id."""
+        return self._sector_bounds[agent_id % self._num_sectors]
 
     def initialize_agent(self, agent: UAV) -> None:
         """Create and attach a SearchAgentState to an agent."""
@@ -176,7 +282,7 @@ class SearchController:
 
         target = self._get_assigned_target(state, target_manager)
 
-        # IDLE: no target assigned yet → sweep the environment with wide coverage
+        # IDLE: no target assigned yet → sweep this agent's fixed sector
         if state.phase == AgentSearchPhase.IDLE or (
             target is None and state.phase != AgentSearchPhase.COMPLETED
         ):
@@ -190,8 +296,7 @@ class SearchController:
                     < self._cfg.arrival_threshold_m * 2.0
                 )
                 if arrived or state.waypoint is None:
-                    # Sample a new random waypoint across the whole world for coverage
-                    wp = self._sample_world_waypoint(agent, world)
+                    wp = self._next_idle_waypoint(agent, state, world)
                     agent.set_target(wp)
                     state.waypoint = wp
             return
@@ -259,40 +364,27 @@ class SearchController:
     # Private helpers
     # ------------------------------------------------------------------
 
-    def _sample_world_waypoint(
+    def _next_idle_waypoint(
         self,
         agent: UAV,
+        state: SearchAgentState,
         world: World,
     ) -> NDArray[np.float64]:
         """
-        Sample a random waypoint spread across the world for IDLE sweep coverage.
-
-        Prefers unexplored areas if the exploration map is available.
-        Avoids the agent's immediate vicinity to encourage movement.
+        Advance to the next waypoint in this agent's fixed lawnmower sector
+        sweep (systematic coverage — see _generate_lawnmower_waypoints()),
+        wrapping around once the sector has been fully swept once. Every
+        waypoint is re-clipped/resolved against current world state at use
+        time (the precomputed list holds raw sector-local coordinates only —
+        dynamic obstacles may have since moved onto a given point, so
+        resolve_collisions must be re-evaluated fresh, not baked in).
         """
-        margin = 2.0
-        for _ in range(20):
-            wp = np.array(
-                [
-                    self._rng.uniform(margin, world.width - margin),
-                    self._rng.uniform(margin, world.height - margin),
-                ],
-                dtype=np.float64,
-            )
-            dist = float(np.linalg.norm(wp - agent.position))
-            if dist > self._cfg.spiral_initial_radius:
-                wp = world.clip_position(wp)
-                wp = world.resolve_collisions(wp)
-                return wp
-        # Fallback
-        wp = np.array(
-            [
-                self._rng.uniform(margin, world.width - margin),
-                self._rng.uniform(margin, world.height - margin),
-            ],
-            dtype=np.float64,
-        )
-        return world.clip_position(wp)
+        waypoints = self._sector_waypoints[agent.agent_id % self._num_sectors]
+        wp = waypoints[state.idle_waypoint_index % len(waypoints)]
+        state.idle_waypoint_index += 1
+        wp = world.clip_position(wp)
+        wp = world.resolve_collisions(wp)
+        return wp
 
     def _get_state(self, agent: UAV) -> SearchAgentState:
         """Get or create SearchAgentState for an agent."""

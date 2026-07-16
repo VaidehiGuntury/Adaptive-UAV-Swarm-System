@@ -106,6 +106,11 @@ class SearchBehaviourConfig:
     arrival_threshold_m     — distance to waypoint considered "arrived" [m]
     loss_timeout_s          — seconds without detection before LOST transition
     max_recovery_attempts   — max spiral/expand loops before permanent LOST
+    idle_sweep_row_spacing  — lawnmower row spacing for IDLE sector sweep [m];
+                              default 2.5m is conservative relative to the
+                              ~2.91m effective detection range (base_confidence
+                              0.85, min_detection_confidence 0.3 threshold),
+                              so consecutive rows overlap rather than leaving gaps
     """
 
     direct_nav_staleness_s: float = 5.0
@@ -118,6 +123,7 @@ class SearchBehaviourConfig:
     arrival_threshold_m: float = 1.0
     loss_timeout_s: float = 8.0
     max_recovery_attempts: int = 5
+    idle_sweep_row_spacing: float = 2.5
 
 
 @dataclass(frozen=True)

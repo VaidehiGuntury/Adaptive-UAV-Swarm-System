@@ -70,8 +70,6 @@ class LinearMotionConfig:
     """Parameters for the constant-velocity obstacle motion model."""
 
     speed: float
-
-
 @dataclass(frozen=True)
 class WaypointMotionConfig:
     """Parameters for the waypoint-following obstacle motion model."""
@@ -336,7 +334,6 @@ def _load_search_config(raw_search: dict[str, Any] | None) -> SearchConfig | Non
         enabled=bool(raw_search.get("enabled", True)),
         targets=TargetSpawnConfig(
             count_static=int(ts.get("count_static", 3)),
-            count_static_human=int(ts.get("count_static_human", 0)),
             count_dynamic=int(ts.get("count_dynamic", 3)),
             count_time_varying=int(ts.get("count_time_varying", 2)),
             spawn_margin=float(ts.get("spawn_margin", 5.0)),
@@ -376,6 +373,7 @@ def _load_search_config(raw_search: dict[str, Any] | None) -> SearchConfig | Non
             arrival_threshold_m=float(beh.get("arrival_threshold_m", 1.0)),
             loss_timeout_s=float(beh.get("loss_timeout_s", 8.0)),
             max_recovery_attempts=int(beh.get("max_recovery_attempts", 5)),
+            idle_sweep_row_spacing=float(beh.get("idle_sweep_row_spacing", 2.5)),
         ),
         assignment=AssignmentConfig(
             max_targets_per_uav=int(asgn.get("max_targets_per_uav", 2)),

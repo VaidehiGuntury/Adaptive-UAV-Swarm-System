@@ -117,5 +117,74 @@ class TestMultiTargetAssignment(unittest.TestCase):
         self.assertEqual(state.assigned_target_ids, [])
 
 
+class TestIdleSectorSweep(unittest.TestCase):
+    """Regression test for the systematic lawnmower IDLE sweep (replaces
+    the old uniform-random _sample_world_waypoint())."""
+
+    def setUp(self) -> None:
+        config_path = Path(__file__).resolve().parents[1] / "configs" / "simulation.yaml"
+        config = load_config(config_path)
+
+        self.world = World.from_config(config.environment, config.uav)
+        self.agent = spawn_uavs(
+            count=1,
+            center=np.array([50.0, 50.0]),
+            spread_radius=5.0,
+            mission_radius=config.aggregation.mission_region_radius,
+            max_speed=config.uav.max_speed,
+            max_angular_velocity=config.uav.max_angular_velocity,
+            seed=1,
+        )[0]
+
+        self.target_manager = TargetManager(
+            config=config.search, world_width=self.world.width, world_height=self.world.height
+        )
+        self.controller = SearchController(
+            config=SearchBehaviourConfig(),
+            tracker=None,
+            rng=np.random.default_rng(0),
+            world_width=self.world.width,
+            world_height=self.world.height,
+            num_uavs=4,
+        )
+        self.controller.initialize_agent(self.agent)
+
+    def test_idle_uav_sweeps_sector_sequentially(self) -> None:
+        state = self.agent.search_state
+        xmin, xmax, ymin, ymax = self.controller.sector_bounds_for_agent(self.agent.agent_id)
+
+        waypoints_seen: list[np.ndarray] = []
+        for _ in range(5):
+            self.controller.update(
+                agent=self.agent,
+                target_manager=self.target_manager,
+                tracker_events={},
+                visibility_map={},
+                world=self.world,
+                dt=2.0,  # > default replan_interval_s (1.5s) — forces a replan every call
+            )
+            self.assertEqual(state.phase, AgentSearchPhase.IDLE)
+            wp = state.waypoint
+            self.assertIsNotNone(wp)
+            waypoints_seen.append(wp.copy())
+            # Within the agent's own sector (small tolerance for the
+            # clip_position/resolve_collisions applied at use time).
+            self.assertGreaterEqual(wp[0], xmin - 1.0)
+            self.assertLessEqual(wp[0], xmax + 1.0)
+            self.assertGreaterEqual(wp[1], ymin - 1.0)
+            self.assertLessEqual(wp[1], ymax + 1.0)
+            # Simulate arrival so the next update() call advances the sweep
+            # (this test drives the FSM directly, not through kinematics).
+            self.agent.position = wp.copy()
+
+        # Sequential, not random: every consecutive pair differs.
+        for i in range(1, len(waypoints_seen)):
+            self.assertFalse(
+                np.array_equal(waypoints_seen[i], waypoints_seen[i - 1]),
+                f"waypoint {i} repeated waypoint {i - 1} — sweep did not advance",
+            )
+        self.assertEqual(state.idle_waypoint_index, 5)
+
+
 if __name__ == "__main__":
     unittest.main()
