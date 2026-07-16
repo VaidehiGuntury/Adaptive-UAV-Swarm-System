@@ -62,6 +62,13 @@ Full suite green at time of commit (58/58).
 
 ## Search-phase reachability validation (commit `a13b0db`)
 
+> **Note:** results recorded below (t=303s search phase start) were
+> generated prior to commit `05da14f`, which correctly enabled
+> `communication_range` filtering in BSA's J_C dispersal term. Under
+> correct Rcomm=50m dynamics, search phase starts at t≈360s (85% coverage
+> reached later due to correctly-constrained dispersal). The 500s
+> validation run supersedes the 420s results documented here.
+
 Config: `configs/experiments/search_reachability_validation_10uav.yaml`,
 derived from `configs/simulation.yaml` (the Task 0 120s-benchmark base
 config) with exactly two values changed:
