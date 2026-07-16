@@ -177,9 +177,17 @@ class SimulationEngine:
                             )
                     self._last_ide_time = self.time_s
 
-            # BSA aggregation: reads fresh p~* set by IDE above.
+            # BSA aggregation: reads fresh p~* set by IDE above. J_C's
+            # dispersal repulsion is range-limited to whatever the IDE
+            # allocator (if any) is configured with, so both share one
+            # communication-range source of truth.
+            comm_range = (
+                self._ide_allocator.config.communication_range
+                if self._ide_allocator is not None
+                else None
+            )
             for agent in self.agents:
-                self.aggregation.update(agent, self.agents, self.world, dt)
+                self.aggregation.update(agent, self.agents, self.world, dt, communication_range=comm_range)
 
         # 4-6. UAV kinematics, collision resolution, boundary clamp.
         for agent in self.agents:

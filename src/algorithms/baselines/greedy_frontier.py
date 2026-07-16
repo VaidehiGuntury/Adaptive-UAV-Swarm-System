@@ -57,6 +57,7 @@ class GreedyFrontierAllocator:
         all_agents: list[UAV],
         world: World,
         dt: float,
+        communication_range: float | None = None,
     ) -> None:
         """
         Assign the nearest frontier cell on the replan cadence.
@@ -70,7 +71,9 @@ class GreedyFrontierAllocator:
         (whose own arrival check has the same effect) moves immediately;
         this keeps the two allocators comparable from t=0. No hysteresis,
         no measurable-improvement gate, no coordination with other UAVs —
-        ``all_agents`` is accepted only to match the interface.
+        ``all_agents`` and ``communication_range`` are accepted only to
+        match SimulationEngine's shared call site (see self_aggregation.py's
+        SelfAggregationController.update()); greedy has no notion of comms.
         """
         elapsed = self._time_since_replan.get(agent.agent_id, 0.0) + dt
         self._time_since_replan[agent.agent_id] = elapsed

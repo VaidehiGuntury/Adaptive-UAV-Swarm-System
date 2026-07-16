@@ -76,9 +76,15 @@ class SelfAggregationController:
         all_agents: list[UAV],
         world: World,
         dt: float,
+        communication_range: float | None = None,
     ) -> None:
         """
         Run BSA decision logic with hysteresis-based viewpoint commitment.
+
+        ``communication_range``: forwarded to J_C (Paper 1 Eq. 6) so the
+        dispersal repulsion term only considers UAVs within range, matching
+        IDEAllocator's partner-eligibility distance basis. None (default)
+        preserves unlimited-range behaviour.
 
         Candidates are re-evaluated on the existing ``replan_interval``
         cadence (Paper 1 §5), but the current target is only *replaced*
@@ -155,11 +161,15 @@ class SelfAggregationController:
 
         best = max(
             candidates,
-            key=lambda c: evaluate_viewpoint_cost(c, agent, all_agents, self.config),
+            key=lambda c: evaluate_viewpoint_cost(
+                c, agent, all_agents, self.config, communication_range=communication_range
+            ),
         )
 
         if has_target and not arrived and not timed_out:
-            best_score = evaluate_viewpoint_cost(best, agent, all_agents, self.config)
+            best_score = evaluate_viewpoint_cost(
+                best, agent, all_agents, self.config, communication_range=communication_range
+            )
             current = ViewpointCandidate(
                 viewpoint=agent.assigned_target,
                 yaw=0.0,
@@ -169,7 +179,9 @@ class SelfAggregationController:
                 ),
                 region_key=self._target_region_key.get(agent.agent_id, (0, 0)),
             )
-            current_score = evaluate_viewpoint_cost(current, agent, all_agents, self.config)
+            current_score = evaluate_viewpoint_cost(
+                current, agent, all_agents, self.config, communication_range=communication_range
+            )
             if best_score <= current_score:
                 return  # not a measurable improvement — keep the current target
 

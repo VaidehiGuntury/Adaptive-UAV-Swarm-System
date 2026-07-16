@@ -85,12 +85,19 @@ def aggregation_utility_j_c(
     all_agents: list[UAV],
     config: AggregationConfig,
     lambda_beta: float | None = None,
+    communication_range: float | None = None,
 ) -> float:
     """
     Bio-inspired self-aggregation utility J_C (Paper 1 Eq. 6).
 
     Higher values attract toward the own allocated target and repel from
     others' targets and positions. Viewpoint selection maximizes this term.
+
+    ``communication_range``: when not None, other UAVs farther than this
+    from ``agent.position`` are excluded from the repulsion sum (out of
+    comm range ⟹ unobservable, same distance basis IDEAllocator uses for
+    partner eligibility). None preserves the previous unlimited-range
+    behaviour.
     """
     vp_c = candidate.viewpoint
     own_allocated = allocation_center(agent)
@@ -102,6 +109,10 @@ def aggregation_utility_j_c(
     for other in all_agents:
         if other.agent_id == agent.agent_id:
             continue
+        if communication_range is not None:
+            dist = float(np.linalg.norm(agent.position - other.position))
+            if dist > communication_range:
+                continue
         other_allocated = allocation_center(other)
         if other_allocated is not None:
             utility -= utility_u_a(vp_c, other_allocated, config, lambda_beta)
@@ -150,6 +161,7 @@ def evaluate_viewpoint_cost(
     all_agents: list[UAV],
     config: AggregationConfig,
     lambda_beta: float | None = None,
+    communication_range: float | None = None,
 ) -> float:
     """
     Composite viewpoint score for argmax selection (Paper 1 Sec. 5).
@@ -159,7 +171,7 @@ def evaluate_viewpoint_cost(
         score = w_C·J_C − w_V·J_V − w_L·J_L
     """
     beta = lambda_beta if lambda_beta is not None else compute_lambda_beta(config)
-    j_c = aggregation_utility_j_c(candidate, agent, all_agents, config, beta)
+    j_c = aggregation_utility_j_c(candidate, agent, all_agents, config, beta, communication_range)
     j_v = turning_cost_j_v(candidate, agent, config)
     j_l = trail_penalty_j_l(candidate, config)
     return float(
