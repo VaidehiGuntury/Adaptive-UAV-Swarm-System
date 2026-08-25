@@ -167,6 +167,20 @@ class SimulationEngine:
         mean_pairwise = float(np.mean(pairwise)) if pairwise else 0.0
 
         frontier_clusters = self.world.map.extract_frontier_clusters()
+        # Skip frontier extraction during search phase (expensive and not needed)
+        if self.mission_orchestrator is not None and \
+                self.mission_orchestrator.phase.name in ("SEARCHING", "COMPLETED"):
+            frontier_clusters = []
+
+        # Skip revisit_ratio during search phase (O(n_agents * n_steps), very slow)
+        in_search = (
+            self.mission_orchestrator is not None
+            and self.mission_orchestrator.phase.name in ("SEARCHING", "COMPLETED")
+        )
+        rr = (
+            0.0 if in_search
+            else revisit_ratio(self.agent_histories, self.world.map)
+        )
 
         # Search phase metrics
         phase_name = "exploring"
@@ -198,7 +212,7 @@ class SimulationEngine:
                 self.aggregation.replan_region_history
             ),
             target_reassignment_count=self.aggregation.step_reassignment_count,
-            revisit_ratio=revisit_ratio(self.agent_histories, self.world.map),
+            revisit_ratio=rr,
             active_frontier_count=len(frontier_clusters),
             mission_phase=phase_name,
             detected_targets=detected,

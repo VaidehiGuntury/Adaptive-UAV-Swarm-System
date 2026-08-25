@@ -1,0 +1,9 @@
+target_id,target_type,target_speed,first_detection_time,assignment_delay,search_success,search_duration_s,tracking_duration_s,loss_events,reacquisition_events,tracking_accuracy,avg_localization_error,assigned_uav,final_status
+0,dynamic,0.5359,157.29999999999535,0.0,True,0.09999999999999432,15.29999999999913,1,1,0.35714285714285715,0.0,8,completed
+1,dynamic,0.5261,79.99999999999973,0.0,True,0.09999999999999432,10.099999999999426,0,0,1.0,0.0,1,completed
+2,dynamic,0.4871,103.59999999999839,0.0,True,0.09999999999999432,10.099999999999426,0,0,0.6,0.0,0,completed
+3,dynamic,0.4943,,,False,0.0,0.0,0,0,0.0,0.0,,undiscovered
+4,random_walk,0.5328,175.29999999999433,0.0,True,0.09999999999999432,10.099999999999426,0,0,0.7,0.0,5,completed
+5,random_walk,0.5278,,,False,0.0,0.0,0,0,0.0,0.0,,undiscovered
+6,waypoint_patrol,0.4654,87.89999999999928,0.0,True,0.09999999999999432,12.199999999999307,0,0,0.5833333333333334,0.0,2,completed
+7,waypoint_patrol,0.517,59.80000000000058,0.0,True,0.10000000000000142,11.99999999999961,0,0,0.5833333333333334,0.0,7,completed

@@ -77,8 +77,16 @@ class DirectNavBehaviour:
         agent_position: NDArray[np.float64],
         world: World,
     ) -> NDArray[np.float64]:
-        """Return last known target position, collision-resolved."""
-        if self._target.last_seen_position is not None:
+        """
+        Return best estimate of where the target will be next.
+
+        For moving targets: use predicted_position (linear extrapolation)
+        if available, falling back to last_seen_position.
+        For static targets: use last_seen_position.
+        """
+        if self._target.is_moving and self._target.predicted_position is not None:
+            goal = self._target.predicted_position.copy()
+        elif self._target.last_seen_position is not None:
             goal = self._target.last_seen_position.copy()
         else:
             goal = self._target.position.copy()
