@@ -1,0 +1,67 @@
+# Paper-Matched DEBS Benchmark — 10 UAV, static environment, exploration only
+# Loaded by: experiments/scripts/run_paper_matched_benchmark.py
+# Purpose: Reproduce DEBS paper conditions as closely as possible in 2D.
+#
+# INTENTIONALLY OMITTED:
+#   dynamic_environment — causes World.from_config to create no ObstacleManager
+#                         (load_config returns dynamic_environment=None)
+#   search              — causes _load_search_config to return None
+#                         (load_config returns search=None)
+#
+# IDE is EXPLICITLY ENABLED via the ide: block below.
+# SimulationEngine builds IDEAllocator internally when config.ide is not None.
+#
+# Seeds are overridden at runtime via:
+#   dataclasses.replace(base_config, environment=dataclasses.replace(
+#       base_config.environment, obstacle_seed=S))
+
+environment:
+  width: 100.0
+  height: 100.0
+  obstacle_count: 20
+  obstacle_min_radius: 1.5
+  obstacle_max_radius: 4.0
+  obstacle_seed: 42        # default; overridden per run via dataclasses.replace
+
+uav:
+  # Paper 1 dynamics (Sec. 2.3) — identical to configs/simulation.yaml
+  max_speed: 1.5
+  max_angular_velocity: 0.9
+  sensing_range: 4.5
+  initial_spread_radius: 20.0
+  spawn_mode: ring
+  spawn_angular_noise: 0.15
+
+aggregation:
+  # BSA parameters — identical to configs/simulation.yaml corrected values
+  d_c: 0.5
+  d_0: 17.8
+  k_a: 1.0
+  turn_cost_weight: 1.0
+  trail_penalty: 8.0
+  candidates_per_frontier: 6
+  replan_interval: 2.0
+  mission_region_radius: 17.8
+  cluster_penalty_weight: 2.0
+  trail_penalty_weight: 1.0
+  turn_penalty_weight: 0.5
+
+simulation:
+  num_uavs: 10
+  dt: 0.1
+  duration: 350.0          # extended from simulation.yaml's 120.0 s
+  spawn_center_x: 50.0
+  spawn_center_y: 50.0
+  animation_interval_ms: 50
+
+# IDE allocation (DEBS §4) — MUST be present; omitting this block sets ide=None
+# and disables IDEAllocator, which is NOT acceptable for this benchmark.
+ide:
+  alpha: 0.5              # identical to configs/simulation.yaml
+  population_size: 20
+  fe_max: 200
+  t_att: 2.0
+  d_star: 30.0
+  communication_range: 50.0
+  bounds_padding: 0.5
+  seed: 42                # fixed for all 5 seeds; only obstacle_seed varies

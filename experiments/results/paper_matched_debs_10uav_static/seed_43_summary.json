@@ -1,0 +1,19 @@
+{
+  "seed": 43,
+  "final_coverage": 0.9074423,
+  "path_distance_total": 5132.29542323345,
+  "trajectory_efficiency": 1.7681022333439511,
+  "mean_speed": 1.5,
+  "mission_overlap_final": 0.5111111111111111,
+  "replanning_count": 2,
+  "coverage_pct_120s": 43.947244,
+  "coverage_pct_200s": 64.48422,
+  "coverage_pct_300s": 86.622704,
+  "coverage_pct_350s": 90.74423,
+  "T50": 142.99999999999616,
+  "T60": 184.5999999999938,
+  "T70": 216.89999999999196,
+  "T80": 268.5999999999926,
+  "T85": 290.7999999999976,
+  "T90": 333.60000000000736
+}

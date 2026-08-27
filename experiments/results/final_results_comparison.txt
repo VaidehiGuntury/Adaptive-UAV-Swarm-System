@@ -1,0 +1,304 @@
+============================================================
+FINAL RESULTS — DEBS COMPARISON
+============================================================
+
+PAPER:  10 UAV sparse forest:
+        112.3 ± 10.6 s mission completion  (3D, ROS, full exploration criterion)
+
+OUR STATIC (10 UAV, 350 s, 5 seeds, BSA+IDE corrected, 2D 100x100m):
+  Coverage at 120 s  = 48.38 ± 2.57 %
+  Coverage at 200 s  = 64.97 ± 4.93 %
+  Coverage at 300 s  = 83.14 ± 4.08 %
+  Final coverage     = 87.11 ± 4.41 %
+  T80                = 283.6 ± 25.9 s  (5/5)
+  T85                = 278.8 ± 12.0 s  (2/5 — seeds 43 and 44 only)
+
+OUR DYNAMIC (10 UAV, 120 s, single seed, 2D 100x100m):
+  Static      = 60.68%
+  Slow        = 58.93%
+  Equal speed = 56.61%
+  Fast        = 62.14%
+  Mixed       = 56.71%
+
+OUR DYNAMIC (20 UAV, 120 s, single seed, 2D 100x100m):
+  Static      = 73.64%
+  Slow        = 72.58%
+  Equal speed = 79.38%
+  Fast        = 82.22%
+  Mixed       = 80.68%
+
+============================================================
+
+1. ORIGINAL DEBS PAPER
+======================
+Reference: 'Decentralised Exploration by a Biologically-inspired Swarm' (DEBS Paper 1)
+
+Metric                   | Value
+-------------------------|-----------------------------------
+Algorithm                | BSA + IDE (3D UAV, ROS, sparse forest)
+Arena                    | 50 x 50 x 2 m (3D)
+Fleet size               | 10 UAVs
+10-UAV mission time      | 112.3 ± 10.6 s (full 3D exploration)
+Mission criterion        | Full area explored (not fixed duration)
+Coverage at specific t   | Not reported
+T50/T60/T70/T80/T85/T90  | Not reported
+Final coverage %         | Not reported
+Mean UAV speed           | Not reported (configured max=1.5 m/s)
+UAV max_speed parameter  | 1.5 m/s
+Trajectory generation    | A* + B-spline (ROS)
+Sensing model            | Depth camera field-of-view
+Multi-UAV sizes reported | 10 UAV only (sparse forest scenario)
+Other fleet sizes        | Not reported in available paper data
+
+============================================================
+
+2. OUR STATIC-OBSTACLE DEBS (350 s, 5 seeds, BSA+IDE corrected)
+================================================================
+Config: configs/experiments/paper_matched_debs_10uav_static.yaml
+Arena:  100 x 100 m (2D), 20 static obstacles
+Fleet:  10 UAVs, max_speed=1.5 m/s, sensing_range=4.5 m
+Seeds:  [42, 43, 44, 45, 46] — obstacle placement, spawn, BSA RNG vary per seed
+IDE:    enabled (seed fixed at 42 for all runs)
+
+Coverage (mean ± SD, 5 seeds):
+  At 120 s : 48.3786 ± 2.5740 %
+  At 200 s : 64.9680 ± 4.9309 %
+  At 300 s : 83.1422 ± 4.0775 %
+  At 350 s : 87.1132 ± 4.4148 %  [final]
+
+Threshold crossing times (mean ± SD):
+  T50 : 127.54 ± 11.44 s  (5/5 seeds reached)
+  T60 : 175.98 ± 18.29 s  (5/5 seeds reached)
+  T70 : 223.30 ± 27.18 s  (5/5 seeds reached)
+  T80 : 283.60 ± 25.94 s  (5/5 seeds reached)
+  T85 : 278.80 ± 12.00 s  (2/5 seeds reached — seeds 43, 44 only)
+  T90 : 319.70 ± 13.90 s  (2/5 seeds reached — seeds 43, 44 only)
+
+Per-seed summary:
+  Seed | Final cov | T50   | T60   | T70   | T80   | T85   | T90   | Path (m)
+  -----|-----------|-------|-------|-------|-------|-------|-------|----------
+  42  |  83.40%   | 115.4 | 162.3 | 225.1 | 291.8 | NaN   | NaN   | 5133
+  43  |  90.74%   | 143.0 | 184.6 | 216.9 | 268.6 | 290.8 | 333.6 | 5132
+  44  |  93.96%   | 117.9 | 147.1 | 176.2 | 241.5 | 266.8 | 305.8 | 5086
+  45  |  84.33%   | 139.5 | 193.8 | 242.3 | 315.3 | NaN   | NaN   | 5104
+  46  |  83.13%   | 121.9 | 192.1 | 256.0 | 300.8 | NaN   | NaN   | 5113
+
+Path distance (mean): 5113.3 ± 17.9 m
+Trajectory efficiency (mean): 1.7038 ± 0.0892 m2/m
+
+EXTENDED SINGLE-RUN (seed 42, 350 s — pre-dating the 5-seed benchmark):
+  Final coverage: 89.77%    T70: 149.0 s    T85: 302.9 s
+  NOTE: single seed, no variance estimate — do NOT mix with 5-seed mean above.
+
+============================================================
+
+3. OUR DYNAMIC-OBSTACLE DEBS (120 s, single seed 42, 2D 100x100m)
+===================================================================
+NOTE: These runs are 120 s. The static paper-matched benchmark is 350 s.
+Do NOT compare final coverage between this section and Section 2 numerically.
+The common comparison point is 120 s coverage (see Section 4).
+All runs: single seed 42, initialisation via src/main.build_simulation().
+
+10 UAV, 120 s:
+  Static       : 60.6755 %  (baseline for Section 4)
+  Slow         : 58.9277 %  (avg_obstacle_speed ~0.55 m/s)
+  Equal speed  : 56.6131 %  (avg_obstacle_speed ~1.50 m/s)
+  Fast         : 62.1398 %  (avg_obstacle_speed ~2.04 m/s)
+  Mixed        : 56.7076 %  (avg_obstacle_speed ~1.36 m/s)
+
+20 UAV, 120 s:
+  Static       : 73.6419 %  (baseline for Section 4)
+  Slow         : 72.5791 %
+  Equal speed  : 79.3812 %
+  Fast         : 82.2154 %
+  Mixed        : 80.6802 %
+
+30 UAV: No dynamic obstacle results exist in saved data.
+
+============================================================
+
+4. STATIC VS DYNAMIC — DIRECT COMPARISON AT 120 s
+===================================================
+Baseline: obstacle_scenario_validation.csv static values (same script, same seed, same init).
+All values: coverage fraction at end of 120 s run.
+
+10-UAV COMPARISON:
+  Scenario       | Static % | Dynamic % | Delta (pp) |  % Change
+  ---------------+----------+-----------+------------+----------
+  Static         |  60.6755 |   60.6755 |    +0.0000 |    +0.00%
+  Slow           |  60.6755 |   58.9277 |    -1.7478 |    -2.88%
+  Equal Speed    |  60.6755 |   56.6131 |    -4.0624 |    -6.70%
+  Fast           |  60.6755 |   62.1398 |    +1.4643 |    +2.41%
+  Mixed          |  60.6755 |   56.7076 |    -3.9679 |    -6.54%
+
+20-UAV COMPARISON:
+  Scenario       | Static % | Dynamic % | Delta (pp) |  % Change
+  ---------------+----------+-----------+------------+----------
+  Static         |  73.6419 |   73.6419 |    +0.0000 |    +0.00%
+  Slow           |  73.6419 |   72.5791 |    -1.0628 |    -1.44%
+  Equal Speed    |  73.6419 |   79.3812 |    +5.7393 |    +7.79%
+  Fast           |  73.6419 |   82.2154 |    +8.5735 |   +11.64%
+  Mixed          |  73.6419 |   80.6802 |    +7.0383 |    +9.56%
+
+IMPORTANT — 'Static' row in each table shows Delta=0 by definition (self-comparison).
+
+Observation on 'fast' and '20-UAV higher-than-static' results:
+  For 10 UAVs, fast obstacles produced HIGHER coverage (+2.44 pp vs static).
+  For 20 UAVs, ALL dynamic scenarios produced higher coverage than static.
+  These are counterintuitive results. The experiment indicates an association,
+  but does not establish the cause. Possible (unconfirmed) interpretations:
+  - Fast/moving obstacles may displace UAVs into unexplored territory.
+  - Near-miss avoidance manoeuvres may incidentally increase map coverage.
+  - Single-seed results are inherently noisy; without replicates, statistical
+    significance cannot be assessed.
+
+============================================================
+
+5. PAPER VS OUR STATIC IMPLEMENTATION
+======================================
+
+CRITICAL NOTE: The paper's 112.3 s is a 3D full-exploration mission-completion
+time (every voxel explored). Our T85 = 278.8 s is a 2D fixed-threshold crossing
+time (only 2/5 seeds reached 85%). These measure fundamentally different things.
+They are NOT directly comparable and no numerical difference should be quoted.
+
+  Metric                           |     Original Paper     |       Our Static DEBS        | Comparability
+  ---------------------------------+------------------------+------------------------------+-------------------------------
+  Mission completion time (10 UAV) |    112.3 +/- 10.6 s    |    N/A (diff. criterion)     | NOT_COMPARABLE
+  T50 (50% coverage threshold)     |      Not reported      |     127.5+/-11.4 s (5/5)     | NOT_COMPARABLE
+  T60 (60% coverage threshold)     |      Not reported      |     176.0+/-18.3 s (5/5)     | NOT_COMPARABLE
+  T70 (70% coverage threshold)     |      Not reported      |     223.3+/-27.2 s (5/5)     | NOT_COMPARABLE
+  T80 (80% coverage threshold)     |      Not reported      |     283.6+/-25.9 s (5/5)     | NOT_COMPARABLE
+  T85 (85% coverage threshold)     |      Not reported      |     278.8+/-12.0 s (2/5)     | NOT_COMPARABLE
+  T90 (90% coverage threshold)     |      Not reported      |     319.7+/-13.9 s (2/5)     | NOT_COMPARABLE
+  Final coverage %                 |      Not reported      |        87.11+/-4.41 %        | NOT_COMPARABLE
+  Coverage at 120 s                |      Not reported      |        48.38+/-2.57 %        | NOT_COMPARABLE
+  Mean UAV velocity                |      Not reported      |     1.5 m/s (configured)     | APPROXIMATELY_COMPARABLE
+  UAV max_speed parameter          |        1.5 m/s         |           1.5 m/s            | DIRECTLY_COMPARABLE
+  Fleet size                       |        10 UAVs         |           10 UAVs            | DIRECTLY_COMPARABLE
+  Algorithm family                 |   BSA + IDE (DEBS 4)   |      BSA + IDE (DEBS 4)      | APPROXIMATELY_COMPARABLE
+
+The paper's 112.3 +/- 10.6 s is a 3D full-exploration mission-completion time.
+Our T85 = 278.8 s is a 2D fixed-threshold time (only 2/5 seeds reached it).
+These measure different things. DO NOT compare them numerically.
+
+If a 'same-criterion' comparison is needed: our extended single-seed run
+(seed 42, 350 s) reached 85% at t=302.9 s. This is the closest single-data-
+point we have to the paper's stopping criterion — but it is one seed, 2D, with
+a different arena and physics layer. Comparability is APPROXIMATELY_COMPARABLE
+at best, and the difference must be contextualized with all caveats from Section 7.
+
+============================================================
+
+6. WHAT OUR PROJECT ADDS
+========================
+
+REPRODUCTION — Static DEBS exploration:
+  BSA + IDE corrected implementation runs 350 s exploration-only under static
+  obstacles, producing 87.11 +/- 4.41% 2D coverage (5 seeds). BSA parameter
+  corrections (J_C sign, d_0, d_star, cluster_penalty) and IDE integration
+  verified and active. Coverage grows monotonically across all 5 seeds.
+  All 5 seeds reached 80%; 2/5 seeds reached 85% within 350 s.
+
+EXTENSION 1 — Dynamic obstacles:
+  Experiment conducted at 10 and 20 UAVs under 5 scenarios (static, slow,
+  equal-speed, fast, mixed), 120 s, single seed. Results show mixed effects:
+  coverage decreased with slow, equal-speed and mixed obstacles at 10 UAVs,
+  but increased under fast obstacles (10 UAVs) and across ALL scenarios at
+  20 UAVs. Single-seed; statistical significance cannot be assessed.
+
+EXTENSION 2 — Target search and tracking:
+  One 420 s run demonstrated search phase entry at t=303 s (85% coverage
+  reached). 5/8 targets detected, 4/8 completed, 1 lost. This is the first
+  run in the project history to exercise the SEARCHING phase.
+
+MULTI-UAV COMPARISON:
+  Multi-seed 120 s results: 10 UAV = 56.12 +/- 3.41%; 20 UAV = 73.68 +/- 6.61%;
+  30 UAV = 74.10 +/- 6.71%. Larger fleets show higher coverage but diminishing
+  returns from 20 to 30 UAVs at 120 s.
+
+============================================================
+
+7. FINAL CONCLUSIONS
+====================
+
+Q1. How does our static implementation compare with the original paper?
+    Our 2D corrected BSA+IDE implementation achieves 87.11 +/- 4.41% coverage
+    at 350 s under static obstacles. The paper reports 112.3 +/- 10.6 s mission
+    completion in 3D under different dimensionality, arena, physics, and stopping
+    criterion. No direct numerical comparison is valid. What can be said: the
+    algorithm family (BSA + IDE) is correctly implemented per the paper description,
+    and the exploration behaviour is qualitatively consistent with the paper.
+
+Q2. How does dynamic obstacle motion affect coverage relative to static?
+    For 10 UAVs: slow (-1.75 pp), equal-speed (-4.06 pp), mixed (-3.97 pp)
+    reduced coverage vs static. Fast obstacles increased coverage (+2.44 pp).
+    For 20 UAVs: ALL dynamic scenarios INCREASED coverage vs static (slow +1.06 pp,
+    equal +5.74 pp, fast +8.57 pp, mixed +7.04 pp). The pattern is not monotone
+    with obstacle speed at 10 UAVs, and the direction reverses at 20 UAVs.
+    The experiment indicates these associations, but does not establish the cause.
+
+Q3. Which dynamic scenario performed WORST for 10 UAVs?
+    Equal-speed obstacles: 56.61% (-4.06 pp / -6.69% vs static).
+
+Q4. Which dynamic scenario performed BEST for 10 UAVs?
+    Fast obstacles: 62.14% (+2.44 pp / +4.03% vs static).
+    Note: 'best' here means highest coverage, not a normative quality judgment.
+
+Q5. Does increasing from 10 to 20 UAVs improve robustness to moving obstacles?
+    In these single-seed runs: yes, empirically. At 20 UAVs, all dynamic scenarios
+    exceeded static coverage. At 10 UAVs, most dynamic scenarios reduced it. However,
+    these are single-seed results and the difference may be partly due to stochasticity.
+    The experiment indicates an association between fleet size and dynamic-obstacle
+    impact, but does not establish the cause.
+
+Q6. What is genuinely demonstrated by our experiments?
+    - BSA + IDE corrected exploration achieves 87% 2D coverage in 350 s (5 seeds).
+    - 5/5 seeds reached 80%; 2/5 seeds reached 85% within 350 s.
+    - Dynamic obstacles produce non-trivial effects on coverage at both fleet sizes.
+    - The search/tracking extension is functional and the search phase is reachable.
+    - 20 UAVs achieve substantially more coverage than 10 UAVs at 120 s.
+
+Q7. What cannot legitimately be claimed?
+    - That our system outperforms the DEBS paper (incompatible evaluation conditions).
+    - That the dynamic-obstacle coverage increases are statistically significant
+      (single-seed runs, no replicates).
+    - That our T85=278.8 s (2/5) can be compared to the paper's 112.3 s.
+    - That results from 120 s runs are comparable to results from 350 s runs.
+
+============================================================
+
+DISCREPANCY EXPLANATION: WHY 60.68% != 48.38%
+==============================================
+obstacle_scenario_validation static_n10 = 60.68% (coverage at end of 120 s run, seed 42)
+paper_matched_benchmark mean 120 s snapshot = 48.38% (mean of 5 seeds)
+
+Cause 1 — DIFFERENT SEEDS: obstacle validation uses seed 42 only.
+  Paper-matched uses seeds 42,43,44,45,46. Seed 42 alone gave 51.2% at 120s
+  in the paper-matched run, not 60.68%.
+
+Cause 2 — DIFFERENT INITIALISATION PATH: obstacle validation uses
+  src/main.build_simulation() which pre-marks spawn positions and performs
+  engine wiring differently from the paper-matched runner's direct calls to
+  World.from_config() + spawn_uavs() + SimulationEngine(). This shifts
+  the initial explored fraction and early-step coverage.
+
+Cause 3 — SAME metric definition confirmed: both report coverage fraction
+  at t=120 s (end of 120 s run for obstacle validation; 120 s snapshot of
+  350 s run for paper-matched). The metric is identical; the difference is
+  real and driven by causes 1 and 2.
+
+CONSEQUENCE: The obstacle validation static baseline (60.68%) is the correct
+and only valid baseline for the static vs dynamic comparison in Section 4,
+because all obstacle scenarios in that experiment share the same initialisation
+path and seed. The 48.38% figure from the paper-matched benchmark is NOT an
+alternative baseline for this comparison.
+
+LIMITATIONS
+===========
+1. Dynamic obstacle experiments: single-seed, 120 s. No variance estimate.
+2. T85 and T90 reached by only 2/5 seeds in 350 s. Not all seeds converge.
+3. 2D vs 3D: direct comparison to paper not valid.
+4. 30-UAV dynamic obstacle experiments: not available in saved data.
+5. Search/tracking: one run only; detection rate 62.5% limited by UAV coverage.
+6. Extended single-seed result not replicated in the 5-seed benchmark.

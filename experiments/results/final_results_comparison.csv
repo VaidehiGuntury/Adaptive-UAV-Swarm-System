@@ -1,0 +1,15 @@
+source,fleet_size,environment,dynamic_scenario,duration_s,coverage_120s,coverage_200s,coverage_300s,coverage_350s,final_coverage_mean,final_coverage_sd,T50,T60,T70,T80,T85,T90,n_reached_T50,n_reached_T60,n_reached_T70,n_reached_T80,n_reached_T85,n_reached_T90,mission_time,path_distance_mean,notes,comparability
+DEBS_paper,10,3D_sparse_forest,static,,,,,,,,,,,,,,,,,,,,112.3+/-10.6s,,3D_ROS_BSA+IDE_sparse_forest_full_exploration_criterion,reference_only
+our_static_5seed_350s,10,2D_100x100m,static,350,48.3786,64.968,83.1422,87.1132,0.871132,0.044148,127.54,175.98,223.3,283.6,278.8,319.7,5,5,5,5,2,2,,5113.3,5_seeds_42-46_BSA+IDE_corrected_exploration_only,APPROXIMATELY_COMPARABLE_to_paper
+our_static_single_seed_350s,10,2D_100x100m,static,350,,,,,0.897733,,,,149.0,,302.9,,,,1of1,,1of1,,,5095.5,single_seed_42_extended_run_pre_5seed_benchmark,not_multi_seed_no_variance
+our_static_120s,10,2D_100x100m,Static,120,60.6755,,,,0.606755,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,10,2D_100x100m,Slow,120,58.9277,,,,0.589277,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,10,2D_100x100m,Equal Speed,120,56.6131,,,,0.566131,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,10,2D_100x100m,Fast,120,62.1398,,,,0.621398,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,10,2D_100x100m,Mixed,120,56.7076,,,,0.567076,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_static_120s,20,2D_100x100m,Static,120,73.6419,,,,0.736419,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,20,2D_100x100m,Slow,120,72.5791,,,,0.725791,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,20,2D_100x100m,Equal Speed,120,79.3812,,,,0.793812,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,20,2D_100x100m,Fast,120,82.2154,,,,0.822154,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_dynamic_120s,20,2D_100x100m,Mixed,120,80.6802,,,,0.806802,,,,,,,,,,,,,,,,single_seed_42_build_simulation_initialisation,APPROXIMATELY_COMPARABLE_within_set_NOT_comparable_to_350s
+our_search_tracking_420s,10,2D_100x100m_static,static,420,,,,,0.85,,,,,,303.0,,,,,,1of1,,420s_fixed_run,,extension2_search_phase_reached_t303s_5of8_detected_4of8_completed,extension_not_in_paper

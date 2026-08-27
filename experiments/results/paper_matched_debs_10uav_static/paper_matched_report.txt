@@ -1,0 +1,127 @@
+PAPER-MATCHED DEBS BENCHMARK REPORT
+=====================================
+Generated : 2026-08-26T12:25:45Z
+Config    : configs\experiments\paper_matched_debs_10uav_static.yaml
+Seeds     : [42, 43, 44, 45, 46]
+
+1. EXPERIMENT SUMMARY
+=====================
+Environment  : Static sparse (100×100 m, 20 static obstacles)
+Fleet        : 10 UAVs, max_speed=1.5 m/s, sensing_range=4.5 m
+Duration     : 350 s  (dt=0.1 s, 3500 steps per seed)
+Algorithms   : BSA (SelfAggregationController) + IDE (IDEAllocator)
+
+2. RESULTS OVERVIEW
+===================
+Coverage snapshots (mean ± std, 5 seeds):
+  t=120 s : 48.38 ± 2.57 %
+  t=200 s : 64.97 ± 4.93 %
+  t=300 s : 83.14 ± 4.08 %
+  t=350 s : 87.11 ± 4.41 %  [final coverage]
+
+Threshold crossing times (mean ± std):
+  T50 : 127.5 ± 11.4 s  (reached 5/5 runs)
+  T60 : 176.0 ± 18.3 s  (reached 5/5 runs)
+  T70 : 223.3 ± 27.2 s  (reached 5/5 runs)
+  T80 : 283.6 ± 25.9 s  (reached 5/5 runs)
+  T85 : 278.8 ± 12.0 s  (reached 2/5 runs)
+  T90 : 319.7 ± 13.9 s  (reached 2/5 runs)
+
+3. COMPARISON TABLE
+===================
+Metric                           | Original DEBS Paper     | Our Corrected DEBS              | Difference | Comparable?
+---------------------------------|-------------------------|--------------------------------|------------|---------------------
+Mission completion time (10 UAV) | 112.3 ± 10.6 s          | N/A (different criterion)      | N/A        | NOT_COMPARABLE
+T50 (50% coverage threshold)     | Not reported            | 127.5 ± 11.4 s                 | N/A        | NOT_COMPARABLE
+T60 (60% coverage threshold)     | Not reported            | 176.0 ± 18.3 s                 | N/A        | NOT_COMPARABLE
+T70 (70% coverage threshold)     | Not reported            | 223.3 ± 27.2 s                 | N/A        | NOT_COMPARABLE
+T80 (80% coverage threshold)     | Not reported            | 283.6 ± 25.9 s                 | N/A        | NOT_COMPARABLE
+T85 (85% coverage threshold)     | Not reported            | 278.8 ± 12.0 s                 | N/A        | NOT_COMPARABLE
+T90 (90% coverage threshold)     | Not reported            | 319.7 ± 13.9 s                 | N/A        | NOT_COMPARABLE
+Final coverage %                 | Not reported            | 87.11 ± 4.41 %                 | N/A        | NOT_COMPARABLE
+Mean UAV velocity                | Not reported            | 1.50 ± 0.00 m/s              | N/A        | APPROXIMATELY_COMPARABLE
+Fleet size                       | 10 UAVs                 | 10 UAVs                        | 0          | DIRECTLY_COMPARABLE
+UAV max_speed parameter          | 1.5 m/s                 | 1.5 m/s                        | 0          | DIRECTLY_COMPARABLE
+General exploration behaviour    | BSA + IDE (DEBS §4)    | BSA + IDE (DEBS §4)           | N/A        | APPROXIMATELY_COMPARABLE
+
+NOTE: The paper's mission completion time uses a different stopping criterion
+(full 3D exploration of a 50×50×2 m sparse forest) from this benchmark's
+fixed-duration 2D approach. These numbers measure different things and
+cannot be numerically compared.
+(NOTE: not directly comparable — 3D vs 2D, different arena and stopping criterion)
+
+4. OUR METRICS (NO PAPER EQUIVALENT)
+======================================
+These metrics are reported for informational purposes only. There are no
+corresponding paper values and no comparison is made or implied.
+
+Exploration rates (coverage % per second, mean ± std):
+  t=120 s : 0.40 ± 0.02 %/s
+  t=200 s : 0.32 ± 0.02 %/s
+  t=300 s : 0.28 ± 0.01 %/s
+  t=350 s : 0.25 ± 0.01 %/s
+
+Coverage efficiency (m² explored / m travelled):
+  Mean : 1.704 ± 0.089 m²/m
+
+Replanning count (cumulative BSA reassignments, mean ± std):
+  Mean : 1 ± 0
+
+5. LIMITATIONS
+==============
+The following differences between this benchmark and the original DEBS
+paper prevent direct numerical comparison of most metrics:
+
+  (a) Dimensionality: This simulation is 2D; the paper uses a 3D UAV model.
+  (b) Arena: This benchmark uses a 100×100 m 2D arena. The paper reports
+      results on a 50×50×2 m sparse forest environment. These are not the
+      same environment.
+  (c) Resolution: Coverage here is measured over traversable 2D grid cells
+      at resolution sensing_range/3 (≈1.5 m). The paper uses 3D voxels
+      at 0.15 m resolution.
+  (d) Trajectory generation: This simulation uses direct heading control.
+      The paper uses A* path planning with B-spline trajectory smoothing.
+  (e) Depth camera: This simulation uses a circular sensing disc. The paper
+      uses a depth-camera field-of-view model.
+  (f) ROS integration: The paper runs in ROS; this simulation is standalone
+      Python.
+  (g) Stopping criterion: The paper's mission completion time is the elapsed
+      time until full 3D exploration is achieved; this benchmark runs for a
+      fixed 350 s.
+
+6. APPROXIMATION NOTES
+=======================
+  - Our 100×100 m 2D arena with 20 static obstacles is the closest
+    available approximation to the paper's 50×50×2 m sparse forest.
+    It is NOT claimed to be identical or equivalent.
+  - Coverage fraction in this benchmark is measured over traversable 2D
+    grid cells at resolution sensing_range/3 (≈1.5 m), not over 3D voxels
+    at 0.15 m resolution.
+  - The IDE config seed is fixed at seed=42 for all 5 runs.
+    What varies across seeds:
+      * obstacle placement  (environment.obstacle_seed = S)
+      * UAV ring-spawn positions  (spawn_uavs seed = S)
+      * BSA RNG  (SelfAggregationController rng = np.random.default_rng(S))
+    What is fixed across seeds:
+      * IDE internal RNG  (IDEAllocator seeded from ide.seed=42 in config)
+
+7. VALID CONCLUSIONS
+====================
+The following conclusions are supported by this benchmark:
+
+  (a) Consistency validation: Our 2D DEBS implementation produces coverage
+      behaviour consistent with the published DEBS algorithm description —
+      BSA frontier selection and IDE fair-share allocation are active and
+      functional.
+
+  (b) Quantified performance: Our 2D corrected DEBS implementation achieves
+      approximately 87.1% coverage at t=350 s under static
+      conditions (mean, 5 seeds).
+
+  (c) Controlled benchmark established: A reproducible 5-seed benchmark
+      exists at experiments/results/paper_matched_debs_10uav_static/ for
+      future comparison against other algorithm variants or implementations.
+
+  This report does NOT claim that our implementation outperforms, equals, or
+  is inferior to the original DEBS paper. Such a claim is not supported by
+  the available data.
